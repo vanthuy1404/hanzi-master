@@ -1,10 +1,10 @@
 import { AuthForm } from "@/components/auth-form";
 import { AuthShell } from "@/components/auth-shell";
 
-export default function Home() {
+export default function RegisterPage() {
   return (
     <AuthShell>
-      <AuthForm mode="login" />
+      <AuthForm mode="register" />
     </AuthShell>
   );
 }
