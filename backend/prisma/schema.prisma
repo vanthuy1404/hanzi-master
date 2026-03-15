@@ -1,0 +1,78 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model roles {
+  id   Int     @id @default(autoincrement())
+  name String? @unique @db.VarChar(50)
+}
+
+model users {
+  id            Int       @id @default(autoincrement())
+  username      String?   @unique @db.VarChar(50)
+  email         String?   @db.VarChar(100)
+  password_hash String?
+  role_id       Int?
+  created_at    DateTime? @default(now()) @db.Timestamp(6)
+}
+
+model chu_de {
+  id         Int       @id @default(autoincrement())
+  ten_chu_de String?   @db.VarChar(255)
+  mo_ta      String?
+  created_by Int?
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+}
+
+model lich_su_hoc {
+  id         Int       @id @default(autoincrement())
+  user_id    Int?
+  tu_vung_id Int?
+  is_correct Boolean?
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+}
+
+model tu_vung {
+  id           Int       @id @default(autoincrement())
+  hanzi        String?   @unique @db.VarChar(50)
+  pinyin       String?   @db.VarChar(100)
+  pinyin_plain String?   @db.VarChar(100)
+  nghia_vi     String?
+  nghia_en     String?
+  example_cn   String?
+  example_vi   String?
+  chu_de_id    Int?
+  created_at   DateTime? @default(now()) @db.Timestamp(6)
+
+  @@index([hanzi], map: "idx_vocab_hanzi")
+  @@index([pinyin_plain], map: "idx_vocab_pinyin")
+  @@index([chu_de_id], map: "idx_vocab_topic")
+}
+
+model ket_ban {
+  id         Int       @id @default(autoincrement())
+  user_id    Int
+  friend_id  Int
+  trang_thai String    @default("pending") @db.VarChar(20)
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+
+  @@unique([user_id, friend_id], map: "uq_ket_ban_user_friend")
+  @@index([user_id], map: "idx_ket_ban_user")
+  @@index([friend_id], map: "idx_ket_ban_friend")
+}
+
+model lich_su_chat {
+  id          Int       @id @default(autoincrement())
+  user_id     Int
+  friend_id   Int
+  noi_dung    String
+  da_xem      Boolean?  @default(false)
+  created_at  DateTime? @default(now()) @db.Timestamp(6)
+
+  @@index([user_id, friend_id, created_at], map: "idx_lich_su_chat_pair_created")
+  @@index([friend_id, user_id, created_at], map: "idx_lich_su_chat_reverse_pair_created")
+}
