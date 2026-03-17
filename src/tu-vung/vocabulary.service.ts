@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable } from '@nestjs/common'
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
 import * as XLSX from 'xlsx'
 
@@ -33,6 +38,41 @@ export class VocabulariesService {
     return parsed
   }
 
+  private normalizeUserId(userId: unknown, { required = false }: { required?: boolean } = {}) {
+    if (userId === undefined || userId === null || userId === '') {
+      if (required) {
+        throw new BadRequestException('user_id la bat buoc')
+      }
+      return undefined
+    }
+
+    const parsed = Number(userId)
+    if (!Number.isInteger(parsed) || parsed <= 0) {
+      throw new BadRequestException('user_id khong hop le')
+    }
+    return parsed
+  }
+
+  private async ensureWritableTopic(chuDeId: number, userId?: number) {
+    const topic = await this.prisma.chu_de.findUnique({
+      where: { id: chuDeId },
+      select: {
+        id: true,
+        user_id: true,
+      },
+    })
+
+    if (!topic) {
+      throw new NotFoundException('Khong tim thay chu de')
+    }
+
+    if (topic.user_id !== null && topic.user_id !== userId) {
+      throw new ForbiddenException('Ban khong co quyen them tu vung vao chu de nay')
+    }
+
+    return topic
+  }
+
   private normalizeBulkItem(item: VocabularyInputItem, chuDeId: number) {
     return {
       hanzi: this.normalizeString(item.hanzi),
@@ -46,7 +86,11 @@ export class VocabulariesService {
     }
   }
 
-  private async findExistingByHanziOrPinyin(hanzi?: string, pinyin?: string) {
+  private async findExistingByHanziOrPinyinInOwnerScope(
+    hanzi: string | undefined,
+    pinyin: string | undefined,
+    ownerUserId: number | null,
+  ) {
     const conditions: Array<{ hanzi?: string; pinyin?: string }> = []
 
     if (hanzi) {
@@ -62,7 +106,18 @@ export class VocabulariesService {
 
     return this.prisma.tu_vung.findFirst({
       where: {
-        OR: conditions,
+        AND: [
+          {
+            OR: conditions,
+          },
+          {
+            chu_de: {
+              is: {
+                user_id: ownerUserId,
+              },
+            },
+          },
+        ],
       },
     })
   }
@@ -135,20 +190,57 @@ export class VocabulariesService {
     return items
   }
 
-  async findAll() {
+  async findAll(userId?: unknown) {
+    const parsedUserId = this.normalizeUserId(userId)
+
     return this.prisma.tu_vung.findMany({
+      where:
+        parsedUserId === undefined
+          ? {
+              chu_de: {
+                is: {
+                  user_id: null,
+                },
+              },
+            }
+          : {
+              chu_de: {
+                is: {
+                  OR: [{ user_id: null }, { user_id: parsedUserId }],
+                },
+              },
+            },
       orderBy: {
         id: 'asc',
       },
     })
   }
 
-  async findOne(id: number) {
-    return this.prisma.tu_vung.findUnique({
+  async findOne(id: number, userId?: unknown) {
+    const parsedUserId = this.normalizeUserId(userId)
+    const vocabulary = await this.prisma.tu_vung.findUnique({
       where: {
         id,
       },
+      include: {
+        chu_de: {
+          select: {
+            user_id: true,
+          },
+        },
+      },
     })
+
+    if (!vocabulary) {
+      throw new NotFoundException('Khong tim thay tu vung')
+    }
+
+    const topicUserId = vocabulary.chu_de?.user_id
+    if (topicUserId !== null && topicUserId !== undefined && topicUserId !== parsedUserId) {
+      throw new ForbiddenException('Ban khong co quyen xem tu vung nay')
+    }
+
+    return vocabulary
   }
 
   async create(data: {
@@ -160,6 +252,7 @@ export class VocabulariesService {
     example_cn?: string
     example_vi?: string
     chu_de_id?: number
+    user_id?: number
   }) {
     const normalizedHanzi = this.normalizeString(data.hanzi)
     const normalizedPinyin = this.normalizeString(data.pinyin)
@@ -168,18 +261,25 @@ export class VocabulariesService {
       throw new BadRequestException('hanzi la bat buoc')
     }
 
-    const existing = await this.findExistingByHanziOrPinyin(normalizedHanzi, normalizedPinyin)
+    const topicId = this.normalizeTopicId(data.chu_de_id)
+    const userId = this.normalizeUserId(data.user_id)
+    const topic = await this.ensureWritableTopic(topicId, userId)
+
+    const existing = await this.findExistingByHanziOrPinyinInOwnerScope(
+      normalizedHanzi,
+      normalizedPinyin,
+      topic.user_id,
+    )
     if (existing) {
       return {
         inserted: false,
-        message: 'Tu vung da ton tai',
+        message: 'Tu vung da ton tai trong pham vi chu de cua user',
         existed: existing,
       }
     }
 
     return this.prisma.tu_vung.create({
       data: {
-        ...data,
         hanzi: normalizedHanzi,
         pinyin: normalizedPinyin,
         pinyin_plain: this.normalizeString(data.pinyin_plain),
@@ -187,16 +287,19 @@ export class VocabulariesService {
         nghia_en: this.normalizeString(data.nghia_en),
         example_cn: this.normalizeString(data.example_cn),
         example_vi: this.normalizeString(data.example_vi),
+        chu_de_id: topicId,
       },
     })
   }
 
-  async createBulk(data: VocabularyInputItem[], chuDeId: unknown) {
+  async createBulk(data: VocabularyInputItem[], chuDeId: unknown, userId?: unknown) {
     if (!Array.isArray(data) || data.length === 0) {
       throw new BadRequestException('Danh sach tu vung trong')
     }
 
     const topicId = this.normalizeTopicId(chuDeId)
+    const parsedUserId = this.normalizeUserId(userId)
+    const topic = await this.ensureWritableTopic(topicId, parsedUserId)
     const normalizedData = data
       .map((item) => this.normalizeBulkItem(item, topicId))
       .filter((item) => item.hanzi !== undefined)
@@ -222,7 +325,18 @@ export class VocabulariesService {
 
     const existingList = await this.prisma.tu_vung.findMany({
       where: {
-        OR: [{ hanzi: { in: hanziList } }, { pinyin: { in: pinyinList } }],
+        AND: [
+          {
+            OR: [{ hanzi: { in: hanziList } }, { pinyin: { in: pinyinList } }],
+          },
+          {
+            chu_de: {
+              is: {
+                user_id: topic.user_id,
+              },
+            },
+          },
+        ],
       },
       select: {
         hanzi: true,
@@ -273,13 +387,13 @@ export class VocabulariesService {
     }
   }
 
-  async createBulkFromExcel(file: { buffer?: Buffer } | undefined, chuDeId: unknown) {
+  async createBulkFromExcel(file: { buffer?: Buffer } | undefined, chuDeId: unknown, userId?: unknown) {
     if (!file?.buffer) {
       throw new BadRequestException('Vui long gui file excel')
     }
 
     const items = this.parseVocabularyItemsFromExcel(file.buffer)
-    return this.createBulk(items, chuDeId)
+    return this.createBulk(items, chuDeId, userId)
   }
 
   async update(
@@ -294,16 +408,72 @@ export class VocabulariesService {
       example_vi?: string
       chu_de_id?: number
     },
+    userId?: unknown,
   ) {
+    const parsedUserId = this.normalizeUserId(userId, { required: true })
+    const existing = await this.prisma.tu_vung.findUnique({
+      where: { id },
+      include: {
+        chu_de: {
+          select: {
+            user_id: true,
+          },
+        },
+      },
+    })
+
+    if (!existing) {
+      throw new NotFoundException('Khong tim thay tu vung')
+    }
+
+    if (existing.chu_de?.user_id !== parsedUserId) {
+      throw new ForbiddenException('Ban khong co quyen cap nhat tu vung nay')
+    }
+
+    if (data.chu_de_id !== undefined) {
+      const nextTopicId = this.normalizeTopicId(data.chu_de_id)
+      await this.ensureWritableTopic(nextTopicId, parsedUserId)
+      data.chu_de_id = nextTopicId
+    }
+
     return this.prisma.tu_vung.update({
       where: {
         id,
       },
-      data,
+      data: {
+        ...data,
+        hanzi: this.normalizeString(data.hanzi),
+        pinyin: this.normalizeString(data.pinyin),
+        pinyin_plain: this.normalizeString(data.pinyin_plain),
+        nghia_vi: this.normalizeString(data.nghia_vi),
+        nghia_en: this.normalizeString(data.nghia_en),
+        example_cn: this.normalizeString(data.example_cn),
+        example_vi: this.normalizeString(data.example_vi),
+      },
     })
   }
 
-  async remove(id: number) {
+  async remove(id: number, userId?: unknown) {
+    const parsedUserId = this.normalizeUserId(userId, { required: true })
+    const existing = await this.prisma.tu_vung.findUnique({
+      where: { id },
+      include: {
+        chu_de: {
+          select: {
+            user_id: true,
+          },
+        },
+      },
+    })
+
+    if (!existing) {
+      throw new NotFoundException('Khong tim thay tu vung')
+    }
+
+    if (existing.chu_de?.user_id !== parsedUserId) {
+      throw new ForbiddenException('Ban khong co quyen xoa tu vung nay')
+    }
+
     return this.prisma.tu_vung.delete({
       where: {
         id,

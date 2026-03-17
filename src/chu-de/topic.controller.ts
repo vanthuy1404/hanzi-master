@@ -1,34 +1,32 @@
-﻿import { Controller, Get, Post, Body, Param, Delete, Put } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Param, Post, Put, Query } from '@nestjs/common'
 import { TopicsService } from './topic.service'
 
 @Controller('chu-de')
 export class TopicsController {
+  constructor(private topicsService: TopicsService) {}
 
-    constructor(private topicsService: TopicsService) {}
+  @Get()
+  findAll(@Query('user_id') userId?: string) {
+    return this.topicsService.findAll(userId)
+  }
 
-    @Get()
-    findAll() {
-        return this.topicsService.findAll()
-    }
+  @Get(':id')
+  findOne(@Param('id') id: string, @Query('user_id') userId?: string) {
+    return this.topicsService.findOne(Number(id), userId)
+  }
 
-    @Get(':id')
-    findOne(@Param('id') id: string) {
-        return this.topicsService.findOne(Number(id))
-    }
+  @Post()
+  create(@Body() body) {
+    return this.topicsService.create(body)
+  }
 
-    @Post()
-    create(@Body() body) {
-        return this.topicsService.create(body)
-    }
+  @Put(':id')
+  update(@Param('id') id: string, @Body() body, @Query('user_id') userId?: string) {
+    return this.topicsService.update(Number(id), body, userId)
+  }
 
-    @Put(':id')
-    update(@Param('id') id: string, @Body() body) {
-        return this.topicsService.update(Number(id), body)
-    }
-
-    @Delete(':id')
-    remove(@Param('id') id: string) {
-        return this.topicsService.remove(Number(id))
-    }
-
+  @Delete(':id')
+  remove(@Param('id') id: string, @Query('user_id') userId?: string) {
+    return this.topicsService.remove(Number(id), userId)
+  }
 }

@@ -18,14 +18,19 @@ model users {
   password_hash String?
   role_id       Int?
   created_at    DateTime? @default(now()) @db.Timestamp(6)
+  chu_de        chu_de[]
 }
 
 model chu_de {
   id         Int       @id @default(autoincrement())
   ten_chu_de String?   @db.VarChar(255)
   mo_ta      String?
-  created_by Int?
+  user_id    Int?
   created_at DateTime? @default(now()) @db.Timestamp(6)
+  user       users?    @relation(fields: [user_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  tu_vung    tu_vung[]
+
+  @@index([user_id], map: "idx_chu_de_user_id")
 }
 
 model lich_su_hoc {
@@ -38,7 +43,7 @@ model lich_su_hoc {
 
 model tu_vung {
   id           Int       @id @default(autoincrement())
-  hanzi        String?   @unique @db.VarChar(50)
+  hanzi        String?   @db.VarChar(50)
   pinyin       String?   @db.VarChar(100)
   pinyin_plain String?   @db.VarChar(100)
   nghia_vi     String?
@@ -47,6 +52,7 @@ model tu_vung {
   example_vi   String?
   chu_de_id    Int?
   created_at   DateTime? @default(now()) @db.Timestamp(6)
+  chu_de       chu_de?   @relation(fields: [chu_de_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
 
   @@index([hanzi], map: "idx_vocab_hanzi")
   @@index([pinyin_plain], map: "idx_vocab_pinyin")

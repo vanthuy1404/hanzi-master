@@ -18,25 +18,34 @@ export class VocabulariesController {
   constructor(private vocabulariesService: VocabulariesService) {}
 
   @Get()
-  findAll() {
-    return this.vocabulariesService.findAll()
+  findAll(@Query('user_id') userId?: string) {
+    return this.vocabulariesService.findAll(userId)
   }
 
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.vocabulariesService.findOne(Number(id))
+  findOne(@Param('id') id: string, @Query('user_id') userId?: string) {
+    return this.vocabulariesService.findOne(Number(id), userId)
   }
 
   @Post()
-  create(@Body() body) {
-    return this.vocabulariesService.create(body)
+  create(@Body() body, @Query('user_id') userIdQuery?: string) {
+    const userId = body?.user_id ?? userIdQuery
+    return this.vocabulariesService.create({
+      ...body,
+      user_id: userId,
+    })
   }
 
   @Post('bulk')
-  createBulk(@Body() body, @Query('chu_de_id') chuDeIdQuery?: string) {
+  createBulk(
+    @Body() body,
+    @Query('chu_de_id') chuDeIdQuery?: string,
+    @Query('user_id') userIdQuery?: string,
+  ) {
     const data = Array.isArray(body) ? body : body?.items ?? []
     const chuDeId = body?.chu_de_id ?? chuDeIdQuery
-    return this.vocabulariesService.createBulk(data, chuDeId)
+    const userId = body?.user_id ?? userIdQuery
+    return this.vocabulariesService.createBulk(data, chuDeId, userId)
   }
 
   @Post('bulk/excel')
@@ -45,18 +54,21 @@ export class VocabulariesController {
     @UploadedFile() file,
     @Body('chu_de_id') chuDeIdBody?: string,
     @Query('chu_de_id') chuDeIdQuery?: string,
+    @Body('user_id') userIdBody?: string,
+    @Query('user_id') userIdQuery?: string,
   ) {
     const chuDeId = chuDeIdBody ?? chuDeIdQuery
-    return this.vocabulariesService.createBulkFromExcel(file, chuDeId)
+    const userId = userIdBody ?? userIdQuery
+    return this.vocabulariesService.createBulkFromExcel(file, chuDeId, userId)
   }
 
   @Put(':id')
-  update(@Param('id') id: string, @Body() body) {
-    return this.vocabulariesService.update(Number(id), body)
+  update(@Param('id') id: string, @Body() body, @Query('user_id') userId?: string) {
+    return this.vocabulariesService.update(Number(id), body, body?.user_id ?? userId)
   }
 
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.vocabulariesService.remove(Number(id))
+  remove(@Param('id') id: string, @Query('user_id') userId?: string) {
+    return this.vocabulariesService.remove(Number(id), userId)
   }
 }
