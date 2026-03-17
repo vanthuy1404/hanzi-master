@@ -1,0 +1,177 @@
+export type Topic = {
+  id: number;
+  ten_chu_de: string | null;
+  mo_ta: string | null;
+  user_id: number | null;
+  created_at?: string | null;
+};
+
+export type Vocabulary = {
+  id: number;
+  hanzi: string | null;
+  pinyin: string | null;
+  pinyin_plain: string | null;
+  nghia_vi: string | null;
+  nghia_en: string | null;
+  example_cn: string | null;
+  example_vi: string | null;
+  chu_de_id: number | null;
+  created_at?: string | null;
+};
+
+type VocabularyDuplicateResponse = {
+  inserted: false;
+  message: string;
+  existed: Vocabulary;
+};
+
+type BulkImportResponse = {
+  count: number;
+  skipped: number;
+};
+
+type BulkCreateResponse = {
+  count: number;
+  skipped: number;
+};
+
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") || "http://localhost:3000";
+
+type Query = Record<string, string | number | undefined | null>;
+
+function makeUrl(path: string, query?: Query) {
+  const url = new URL(`${API_BASE}${path}`);
+  if (query) {
+    for (const [key, value] of Object.entries(query)) {
+      if (value !== undefined && value !== null && `${value}`.length > 0) {
+        url.searchParams.set(key, String(value));
+      }
+    }
+  }
+  return url.toString();
+}
+
+async function request<T>(path: string, init?: RequestInit, query?: Query): Promise<T> {
+  const response = await fetch(makeUrl(path, query), {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(init?.headers ?? {}),
+    },
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    const message =
+      typeof body?.message === "string"
+        ? body.message
+        : Array.isArray(body?.message)
+          ? body.message.join(", ")
+          : "Yêu cầu thất bại";
+    throw new Error(message);
+  }
+
+  return (await response.json()) as T;
+}
+
+export function getTopics(userId?: number) {
+  return request<Topic[]>("/chu-de", { method: "GET" }, { user_id: userId });
+}
+
+export function createTopic(payload: { ten_chu_de: string; mo_ta?: string; user_id?: number | null }) {
+  return request<Topic>("/chu-de", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateTopic(
+  id: number,
+  payload: { ten_chu_de?: string; mo_ta?: string },
+  userId: number,
+) {
+  return request<Topic>(
+    `/chu-de/${id}`,
+    {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    },
+    { user_id: userId },
+  );
+}
+
+export function deleteTopic(id: number, userId: number) {
+  return request<Topic>(`/chu-de/${id}`, { method: "DELETE" }, { user_id: userId });
+}
+
+export function getVocabularies(userId?: number) {
+  return request<Vocabulary[]>("/tu-vung", { method: "GET" }, { user_id: userId });
+}
+
+export function createVocabulary(payload: {
+  hanzi: string;
+  pinyin?: string;
+  pinyin_plain?: string;
+  nghia_vi?: string;
+  nghia_en?: string;
+  example_cn?: string;
+  example_vi?: string;
+  chu_de_id: number;
+  user_id?: number;
+}) {
+  return request<Vocabulary | VocabularyDuplicateResponse>("/tu-vung", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export function createVocabularyBulk(input: {
+  chu_de_id: number;
+  user_id?: number;
+  items: Array<{
+    hanzi: string;
+    pinyin?: string;
+    pinyin_plain?: string;
+    nghia_vi?: string;
+    nghia_en?: string;
+    example_cn?: string;
+    example_vi?: string;
+  }>;
+}) {
+  return request<BulkCreateResponse>("/tu-vung/bulk", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function importVocabulariesFromExcel(input: {
+  file: File;
+  chuDeId: number;
+  userId?: number;
+}) {
+  const formData = new FormData();
+  formData.append("file", input.file);
+  formData.append("chu_de_id", String(input.chuDeId));
+  if (input.userId) {
+    formData.append("user_id", String(input.userId));
+  }
+
+  const response = await fetch(makeUrl("/tu-vung/bulk/excel"), {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    const message =
+      typeof body?.message === "string"
+        ? body.message
+        : Array.isArray(body?.message)
+          ? body.message.join(", ")
+          : "Không thể import Excel";
+    throw new Error(message);
+  }
+
+  return (await response.json()) as BulkImportResponse;
+}

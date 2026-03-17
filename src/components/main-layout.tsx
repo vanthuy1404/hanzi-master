@@ -1,40 +1,34 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { ReactNode, useEffect, useState } from "react";
 import { getMe, type AuthUser } from "@/lib/auth-api";
 import { getAuthToken, saveUser } from "@/lib/auth-storage";
 import { ThemeToggle } from "@/components/theme-toggle";
 
-type MainLayoutProps = {
-  children: ReactNode;
-};
+type MainLayoutProps = { children: ReactNode };
 
 const menuItems = [
-  { label: "Tổng quan", icon: "dashboard", active: true },
-  { label: "Bài học", icon: "school", active: false },
-  { label: "Tiến độ", icon: "insights", active: false },
-  { label: "Hồ sơ", icon: "person", active: false },
-  { label: "Cài đặt", icon: "settings", active: false },
+  { label: "Tổng quan", icon: "dashboard", href: "/home" },
+  { label: "Chủ đề", icon: "category", href: "/chu-de" },
+  { label: "Tiến độ", icon: "insights", href: "/home" },
+  { label: "Hồ sơ", icon: "person", href: "/home" },
+  { label: "Cài đặt", icon: "settings", href: "/home" },
 ];
 
 function getInitials(username?: string) {
-  if (!username) {
-    return "U";
-  }
-
+  if (!username) return "U";
   return username.slice(0, 2).toUpperCase();
 }
 
 export function MainLayout({ children }: MainLayoutProps) {
   const [user, setUser] = useState<AuthUser | null>(null);
+  const pathname = usePathname();
 
   useEffect(() => {
     const token = getAuthToken();
-    if (!token) {
-      return;
-    }
-
+    if (!token) return;
     getMe(token)
       .then((response) => {
         setUser(response.user);
@@ -55,25 +49,26 @@ export function MainLayout({ children }: MainLayoutProps) {
 
         <nav className="mt-4 flex-1 space-y-2 px-4">
           {menuItems.map((item) => (
-            <button
+            <Link
               key={item.label}
-              type="button"
+              href={item.href}
               className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left text-sm font-medium transition-colors ${
-                item.active
+                pathname === item.href
                   ? "bg-primary/10 text-primary"
                   : "text-muted hover:bg-primary/5"
               }`}
             >
               <span className="material-symbols-outlined">{item.icon}</span>
               <span>{item.label}</span>
-            </button>
+            </Link>
           ))}
         </nav>
 
         <div className="border-t border-primary/10 p-4">
+          <p className="mb-3 text-xs text-muted">Bản quyền thuộc về Đặng Văn Thùy</p>
           <div className="rounded-xl bg-primary/5 p-4">
             <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-primary">
-              Cấp độ hiện tại
+              Trình độ hiện tại
             </p>
             <div className="flex items-center justify-between">
               <span className="text-lg font-bold">HSK 3</span>
@@ -96,17 +91,14 @@ export function MainLayout({ children }: MainLayoutProps) {
             </span>
             <input
               type="text"
-              placeholder="Tìm ký tự, từ vựng hoặc ngữ pháp..."
+              placeholder="Tìm chủ đề hoặc từ vựng..."
               className="w-full rounded-lg border border-transparent bg-background py-2 pl-10 pr-4 text-sm outline-none transition focus:border-primary/40 focus:ring-2 focus:ring-primary/20"
             />
           </div>
 
           <div className="ml-4 flex items-center gap-3">
             <ThemeToggle />
-            <button
-              type="button"
-              className="relative rounded-lg p-2 text-muted transition hover:bg-primary/5"
-            >
+            <button type="button" className="relative rounded-lg p-2 text-muted transition hover:bg-primary/5">
               <span className="material-symbols-outlined">notifications</span>
               <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-rose-500" />
             </button>
@@ -122,7 +114,6 @@ export function MainLayout({ children }: MainLayoutProps) {
             </Link>
           </div>
         </header>
-
         {children}
       </div>
     </div>

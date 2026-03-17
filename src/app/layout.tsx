@@ -10,7 +10,7 @@ const lexend = Lexend({
 
 export const metadata: Metadata = {
   title: "Hanzi Master",
-  description: "Frontend đăng nhập và bảng điều khiển học tập Hanzi Master",
+  description: "Giao diện đăng nhập và bảng điều khiển học tập Hanzi Master",
 };
 
 export default function RootLayout({
@@ -41,9 +41,7 @@ export default function RootLayout({
         />
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className={`${lexend.variable} font-sans antialiased`}>
-        {children}
-      </body>
+      <body className={`${lexend.variable} font-sans antialiased`}>{children}</body>
     </html>
   );
 }

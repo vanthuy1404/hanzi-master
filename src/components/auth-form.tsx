@@ -7,12 +7,9 @@ import { login, register } from "@/lib/auth-api";
 import { saveAuthSession } from "@/lib/auth-storage";
 
 type Mode = "login" | "register";
+type AuthFormProps = { mode: Mode };
 
 const usernamePattern = /^[A-Za-z0-9._-]{8,20}$/;
-
-type AuthFormProps = {
-  mode: Mode;
-};
 
 export function AuthForm({ mode }: AuthFormProps) {
   const isLogin = mode === "login";
@@ -33,7 +30,6 @@ export function AuthForm({ mode }: AuthFormProps) {
     setSuccess("");
 
     const trimmedUsername = username.trim();
-
     if (!trimmedUsername || !password.trim()) {
       setError("Vui lòng nhập đầy đủ tên đăng nhập và mật khẩu.");
       return;
@@ -42,11 +38,10 @@ export function AuthForm({ mode }: AuthFormProps) {
     if (!isLogin) {
       if (!usernamePattern.test(trimmedUsername)) {
         setError(
-          "Tên tài khoản phải dài 8-20 ký tự, không chứa khoảng trắng, không dấu tiếng Việt. Chỉ dùng chữ cái không dấu, số, dấu chấm (.), gạch dưới (_) hoặc gạch ngang (-).",
+          "Tên tài khoản phải dài 8-20 ký tự, không chứa khoảng trắng, không dấu. Chỉ dùng chữ cái, số, ., _ hoặc -.",
         );
         return;
       }
-
       if (password !== confirmPassword) {
         setError("Mật khẩu xác nhận không khớp.");
         return;
@@ -55,13 +50,8 @@ export function AuthForm({ mode }: AuthFormProps) {
 
     try {
       setSubmitting(true);
-
       if (isLogin) {
-        const response = await login({
-          username: trimmedUsername,
-          password,
-        });
-
+        const response = await login({ username: trimmedUsername, password });
         saveAuthSession(response.access_token, response.user);
         router.push("/home");
         return;
@@ -72,16 +62,11 @@ export function AuthForm({ mode }: AuthFormProps) {
         email: email.trim() || undefined,
         password,
       });
-
       setSuccess("Đăng ký thành công. Bạn có thể đăng nhập ngay.");
       setPassword("");
       setConfirmPassword("");
     } catch (submitError) {
-      if (submitError instanceof Error) {
-        setError(submitError.message);
-      } else {
-        setError("Không thể xử lý yêu cầu lúc này.");
-      }
+      setError(submitError instanceof Error ? submitError.message : "Không thể xử lý yêu cầu lúc này.");
     } finally {
       setSubmitting(false);
     }
@@ -90,9 +75,7 @@ export function AuthForm({ mode }: AuthFormProps) {
   return (
     <div className="w-full max-w-[480px] rounded-2xl border border-primary/10 bg-surface p-8 shadow-lg shadow-primary/10">
       <div className="mb-8 text-center">
-        <h1 className="text-3xl font-bold tracking-tight">
-          {isLogin ? "Đăng nhập" : "Đăng ký"}
-        </h1>
+        <h1 className="text-3xl font-bold tracking-tight">{isLogin ? "Đăng nhập" : "Đăng ký"}</h1>
         <p className="mt-2 text-sm text-muted">
           {isLogin
             ? "Chào mừng bạn quay trở lại với Hanzi Master"
@@ -121,7 +104,7 @@ export function AuthForm({ mode }: AuthFormProps) {
 
         {!isLogin && (
           <label className="flex flex-col gap-2">
-            <span className="text-sm font-medium">Email (tùy chọn)</span>
+            <span className="text-sm font-medium">Email (tuỳ chọn)</span>
             <input
               type="email"
               className="h-12 rounded-lg border border-border bg-transparent px-4 text-base outline-none ring-primary/40 transition focus:ring-2"
@@ -134,9 +117,7 @@ export function AuthForm({ mode }: AuthFormProps) {
         )}
 
         <label className="flex flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">Mật khẩu</span>
-          </div>
+          <span className="text-sm font-medium">Mật khẩu</span>
           <div className="relative">
             <input
               type={showPassword ? "text" : "password"}
@@ -175,7 +156,6 @@ export function AuthForm({ mode }: AuthFormProps) {
             {error}
           </p>
         )}
-
         {success && (
           <p className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
             {success}
@@ -193,10 +173,7 @@ export function AuthForm({ mode }: AuthFormProps) {
 
       <p className="mt-7 text-center text-sm text-muted">
         {isLogin ? "Chưa có tài khoản?" : "Đã có tài khoản?"}{" "}
-        <Link
-          href={isLogin ? "/register" : "/"}
-          className="font-semibold text-primary hover:underline"
-        >
+        <Link href={isLogin ? "/register" : "/"} className="font-semibold text-primary hover:underline">
           {isLogin ? "Đăng ký ngay" : "Đăng nhập"}
         </Link>
       </p>

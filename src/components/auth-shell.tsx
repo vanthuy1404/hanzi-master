@@ -1,9 +1,7 @@
 import { ReactNode } from "react";
 import { ThemeToggle } from "@/components/theme-toggle";
 
-type AuthShellProps = {
-  children: ReactNode;
-};
+type AuthShellProps = { children: ReactNode };
 
 export function AuthShell({ children }: AuthShellProps) {
   return (
@@ -23,7 +21,7 @@ export function AuthShell({ children }: AuthShellProps) {
       <main className="flex flex-1 items-center justify-center p-6">{children}</main>
 
       <footer className="p-6 text-center text-sm text-muted">
-        <p>© 2026 Hanzi Master. Mọi quyền được bảo lưu.</p>
+        <p>© 2026 Hanzi Master. Mọi quyền được bảo lưu. Bản quyền thuộc về Đặng Văn Thùy.</p>
       </footer>
     </div>
   );

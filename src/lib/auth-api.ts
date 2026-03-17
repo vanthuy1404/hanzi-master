@@ -36,8 +36,7 @@ type ApiErrorResponse = {
 };
 
 const API_BASE =
-  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ||
-  "http://localhost:3000";
+  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") || "http://localhost:3000";
 
 const ERROR_MAP: Record<string, string> = {
   "username va password la bat buoc": "Tên đăng nhập và mật khẩu là bắt buộc.",
@@ -60,7 +59,6 @@ function normalizeErrorMessage(message: ApiErrorResponse["message"]) {
   if (!trimmed) {
     return "Có lỗi xảy ra, vui lòng thử lại.";
   }
-
   return ERROR_MAP[trimmed] ?? trimmed;
 }
 
@@ -82,9 +80,7 @@ async function request<T>(
   });
 
   if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as
-      | ApiErrorResponse
-      | null;
+    const body = (await response.json().catch(() => null)) as ApiErrorResponse | null;
     throw new Error(normalizeErrorMessage(body?.message));
   }
 
