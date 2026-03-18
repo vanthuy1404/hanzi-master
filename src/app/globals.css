@@ -1,11 +1,11 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f6f8f8;
-  --foreground: #0f172a;
-  --surface: #ffffff;
-  --muted: #475569;
-  --border: #dbe3e6;
+  --background: #e9eef1;
+  --foreground: #16202b;
+  --surface: rgba(255, 255, 255, 0.78);
+  --muted: #526172;
+  --border: rgba(120, 142, 162, 0.28);
   --primary: #19d4e6;
   --primary-strong: #0fb7c6;
 }
@@ -22,11 +22,11 @@
 }
 
 .dark {
-  --background: #112021;
-  --foreground: #e2e8f0;
-  --surface: #0f1f21;
-  --muted: #94a3b8;
-  --border: #334155;
+  --background: #1f2a35;
+  --foreground: #dce6f1;
+  --surface: rgba(28, 40, 54, 0.74);
+  --muted: #9cafc3;
+  --border: rgba(148, 170, 194, 0.24);
   --primary: #19d4e6;
   --primary-strong: #34deed;
 }
@@ -38,8 +38,8 @@ body {
 
 body {
   background:
-    radial-gradient(circle at top right, color-mix(in srgb, var(--primary) 20%, transparent) 0, transparent 32%),
-    radial-gradient(circle at bottom left, color-mix(in srgb, var(--primary) 14%, transparent) 0, transparent 36%),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--primary) 16%, transparent) 0, transparent 40%),
+    radial-gradient(circle at bottom left, color-mix(in srgb, var(--primary) 10%, transparent) 0, transparent 42%),
     var(--background);
   color: var(--foreground);
 }

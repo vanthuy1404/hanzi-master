@@ -12,9 +12,10 @@ type MainLayoutProps = { children: ReactNode };
 const menuItems = [
   { label: "Tổng quan", icon: "dashboard", href: "/home" },
   { label: "Chủ đề", icon: "category", href: "/chu-de" },
-  { label: "Tiến độ", icon: "insights", href: "/home" },
-  { label: "Hồ sơ", icon: "person", href: "/home" },
-  { label: "Cài đặt", icon: "settings", href: "/home" },
+  { label: "Flash Card", icon: "style", href: "/flash-card" },
+  { label: "Bạn bè", icon: "group", href: "/ban-be" },
+  { label: "Luyện tập dịch", icon: "translate", href: "/luyen-tap-dich" },
+  { label: "Hồ sơ", icon: "person", href: "/ho-so" },
 ];
 
 function getInitials(username?: string) {
@@ -67,9 +68,7 @@ export function MainLayout({ children }: MainLayoutProps) {
         <div className="border-t border-primary/10 p-4">
           <p className="mb-3 text-xs text-muted">Bản quyền thuộc về Đặng Văn Thùy</p>
           <div className="rounded-xl bg-primary/5 p-4">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-primary">
-              Trình độ hiện tại
-            </p>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-primary">Trình độ hiện tại</p>
             <div className="flex items-center justify-between">
               <span className="text-lg font-bold">HSK 3</span>
               <span className="rounded-full bg-primary px-2 py-1 text-xs font-medium text-slate-900">
@@ -103,7 +102,7 @@ export function MainLayout({ children }: MainLayoutProps) {
               <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-rose-500" />
             </button>
             <div className="hidden h-8 w-px bg-primary/10 sm:block" />
-            <Link href="/home" className="flex items-center gap-3">
+            <Link href="/ho-so" className="flex items-center gap-3">
               <div className="hidden text-right sm:block">
                 <p className="text-sm font-bold">{user?.username ?? "Học viên"}</p>
                 <p className="text-[10px] font-medium text-muted">CHUỖI: 12 NGÀY</p>

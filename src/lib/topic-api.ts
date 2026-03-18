@@ -19,6 +19,61 @@ export type Vocabulary = {
   created_at?: string | null;
 };
 
+export type VocabularyFlashCardPage = {
+  items: Vocabulary[];
+  pagination: {
+    page: number;
+    page_size: number;
+    total_items: number;
+    total_pages: number;
+  };
+};
+
+export type TranslationPracticeItem = {
+  question: string;
+  answer: string;
+};
+
+export type TranslationPractice = {
+  id: number;
+  user_id: number | null;
+  topic_ids: number[];
+  so_cau: number;
+  level: "de" | "trung_binh" | "kho";
+  created_at?: string | null;
+  items: TranslationPracticeItem[];
+};
+
+export type DeleteTranslationPracticeResponse = {
+  message: string;
+  id: number;
+};
+
+export type GeneratedTranslationPractice = {
+  user_id: number | null;
+  topic_ids: number[];
+  so_cau: number;
+  level: "de" | "trung_binh" | "kho";
+  items: TranslationPracticeItem[];
+};
+
+export type TranslationPracticeSubmitDetail = {
+  index: number;
+  question: string;
+  user_answer: string;
+  system_answer: string;
+  is_correct: boolean;
+};
+
+export type TranslationPracticeSubmitResult = {
+  history_id: number;
+  luyen_tap_dich_id: number;
+  tong_so_cau: number;
+  so_cau_dung: number;
+  diem: number;
+  details: TranslationPracticeSubmitDetail[];
+};
+
 type VocabularyDuplicateResponse = {
   inserted: false;
   message: string;
@@ -109,6 +164,24 @@ export function getVocabularies(userId?: number) {
   return request<Vocabulary[]>("/tu-vung", { method: "GET" }, { user_id: userId });
 }
 
+export function getVocabularyFlashCards(input?: {
+  user_id?: number;
+  chu_de_id?: number;
+  page?: number;
+  page_size?: number;
+}) {
+  return request<VocabularyFlashCardPage>(
+    "/tu-vung/flash-cards",
+    { method: "GET" },
+    {
+      user_id: input?.user_id,
+      chu_de_id: input?.chu_de_id,
+      page: input?.page,
+      page_size: input?.page_size,
+    },
+  );
+}
+
 export function createVocabulary(payload: {
   hanzi: string;
   pinyin?: string;
@@ -174,4 +247,70 @@ export async function importVocabulariesFromExcel(input: {
   }
 
   return (await response.json()) as BulkImportResponse;
+}
+
+export function getTranslationPractices(userId?: number) {
+  return request<TranslationPractice[]>("/luyen-tap-dich", { method: "GET" }, { user_id: userId });
+}
+
+export function generateTranslationPractice(input: {
+  topic_ids: number[];
+  so_cau: number;
+  level: "de" | "trung_binh" | "kho";
+  user_id?: number | null;
+}) {
+  return request<GeneratedTranslationPractice>("/luyen-tap-dich/generate", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function saveTranslationPractice(input: {
+  topic_ids: number[];
+  so_cau: number;
+  level: "de" | "trung_binh" | "kho";
+  items: TranslationPracticeItem[];
+  user_id?: number | null;
+}) {
+  return request<TranslationPractice>("/luyen-tap-dich/save", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateTranslationPractice(
+  id: number,
+  input: {
+    topic_ids: number[];
+    so_cau: number;
+    level: "de" | "trung_binh" | "kho";
+    items: TranslationPracticeItem[];
+    user_id?: number | null;
+  },
+) {
+  return request<TranslationPractice>(`/luyen-tap-dich/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+}
+
+export function deleteTranslationPractice(id: number, userId?: number | null) {
+  return request<DeleteTranslationPracticeResponse>(
+    `/luyen-tap-dich/${id}`,
+    { method: "DELETE" },
+    { user_id: userId },
+  );
+}
+
+export function submitTranslationPractice(
+  id: number,
+  input: {
+    user_id: number;
+    answers: Array<string | { answer: string }>;
+  },
+) {
+  return request<TranslationPracticeSubmitResult>(`/luyen-tap-dich/${id}/submit`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
 }

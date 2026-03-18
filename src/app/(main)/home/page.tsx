@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { getMe, type AuthUser } from "@/lib/auth-api";
 import { getAuthToken, saveUser } from "@/lib/auth-storage";
@@ -11,6 +12,7 @@ const learningModes = [
     tag: "20 THẺ",
     icon: "style",
     color: "text-primary bg-primary/10",
+    href: "/flash-card",
   },
   {
     title: "Ghép từ",
@@ -18,6 +20,7 @@ const learningModes = [
     tag: "2 CỘT",
     icon: "compare_arrows",
     color: "text-indigo-600 bg-indigo-100 dark:bg-indigo-900/30",
+    href: "/chu-de",
   },
   {
     title: "Điền nghĩa",
@@ -25,6 +28,15 @@ const learningModes = [
     tag: "VIẾT TAY",
     icon: "translate",
     color: "text-emerald-600 bg-emerald-100 dark:bg-emerald-900/30",
+    href: "/chu-de",
+  },
+  {
+    title: "Luyện tập dịch",
+    description: "Làm bài dịch Việt → pinyin, nộp bài và nhận điểm ngay.",
+    tag: "MỚI",
+    icon: "quiz",
+    color: "text-amber-700 bg-amber-100 dark:bg-amber-900/30",
+    href: "/luyen-tap-dich/lam-bai",
   },
 ];
 
@@ -46,26 +58,24 @@ export default function HomePage() {
     <div className="space-y-8 p-4 md:p-8">
       <section className="flex flex-col justify-between gap-6 md:flex-row md:items-center">
         <div>
-          <h2 className="text-3xl font-black tracking-tight">
-            Chào mừng quay lại, {user?.username ?? "học viên"}!
-          </h2>
-          <p className="mt-1 text-muted">Bạn chỉ còn 32 từ nữa là hoàn thành từ vựng HSK 3.</p>
+          <h2 className="text-3xl font-black tracking-tight">Chào mừng quay lại, {user?.username ?? "học viên"}!</h2>
+          <p className="mt-1 text-muted">Hôm nay bạn muốn luyện chế độ nào?</p>
         </div>
       </section>
 
       <section>
         <div className="mb-6 flex items-center justify-between">
           <h3 className="text-xl font-bold">Chế độ học</h3>
-          <button type="button" className="text-sm font-bold text-primary hover:underline">
-            Xem tất cả hoạt động
-          </button>
+          <Link href="/luyen-tap-dich/lam-bai" className="text-sm font-bold text-primary hover:underline">
+            Làm bài luyện tập dịch
+          </Link>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
           {learningModes.map((mode) => (
-            <button
+            <Link
               key={mode.title}
-              type="button"
+              href={mode.href}
               className="group flex flex-col rounded-2xl border border-primary/10 bg-surface p-6 text-left shadow-sm transition hover:border-primary"
             >
               <div
@@ -81,7 +91,7 @@ export default function HomePage() {
                   arrow_forward
                 </span>
               </div>
-            </button>
+            </Link>
           ))}
         </div>
       </section>

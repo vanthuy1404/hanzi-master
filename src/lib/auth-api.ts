@@ -31,6 +31,30 @@ export type MeResponse = {
   user: AuthUser;
 };
 
+export type ProfileHistoryItem = {
+  id: number;
+  created_at: string;
+  luyen_tap_dich_id: number;
+  tong_so_cau: number;
+  so_cau_dung: number;
+  diem: number;
+  level: "de" | "trung_binh" | "kho";
+  topic_ids: number[];
+};
+
+export type ProfileSummaryResponse = {
+  user: AuthUser;
+  stats: {
+    so_bai_luyen_tap: number;
+    tong_diem_kinh_nghiem: number;
+  };
+  history: ProfileHistoryItem[];
+};
+
+export type ChangePasswordResponse = {
+  message: string;
+};
+
 type ApiErrorResponse = {
   message?: string | string[];
 };
@@ -104,6 +128,27 @@ export function login(payload: LoginPayload) {
 export function getMe(token: string) {
   return request<MeResponse>("/auth/me", {
     method: "GET",
+    token,
+  });
+}
+
+export function getProfileSummary(token: string) {
+  return request<ProfileSummaryResponse>("/auth/profile-summary", {
+    method: "GET",
+    token,
+  });
+}
+
+export function changePassword(
+  token: string,
+  payload: {
+    old_password: string;
+    new_password: string;
+  },
+) {
+  return request<ChangePasswordResponse>("/auth/change-password", {
+    method: "POST",
+    body: JSON.stringify(payload),
     token,
   });
 }
