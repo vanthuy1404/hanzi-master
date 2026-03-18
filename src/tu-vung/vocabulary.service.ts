@@ -38,6 +38,39 @@ export class VocabulariesService {
     return parsed
   }
 
+  private normalizeOptionalTopicId(chuDeId: unknown) {
+    if (chuDeId === undefined || chuDeId === null || chuDeId === '') {
+      return undefined
+    }
+    return this.normalizeTopicId(chuDeId)
+  }
+
+  private normalizePositiveInt(
+    value: unknown,
+    {
+      fallback,
+      min,
+      max,
+      field,
+    }: {
+      fallback: number
+      min: number
+      max: number
+      field: string
+    },
+  ) {
+    if (value === undefined || value === null || value === '') {
+      return fallback
+    }
+
+    const parsed = Number(value)
+    if (!Number.isInteger(parsed) || parsed < min || parsed > max) {
+      throw new BadRequestException(`${field} khong hop le`)
+    }
+
+    return parsed
+  }
+
   private normalizeUserId(userId: unknown, { required = false }: { required?: boolean } = {}) {
     if (userId === undefined || userId === null || userId === '') {
       if (required) {
@@ -214,6 +247,86 @@ export class VocabulariesService {
         id: 'asc',
       },
     })
+  }
+
+  async findFlashCards(input: {
+    user_id?: unknown
+    chu_de_id?: unknown
+    page?: unknown
+    page_size?: unknown
+  }) {
+    const parsedUserId = this.normalizeUserId(input.user_id)
+    const topicId = this.normalizeOptionalTopicId(input.chu_de_id)
+    const page = this.normalizePositiveInt(input.page, {
+      fallback: 1,
+      min: 1,
+      max: 100000,
+      field: 'page',
+    })
+    const pageSize = this.normalizePositiveInt(input.page_size, {
+      fallback: 9,
+      min: 1,
+      max: 60,
+      field: 'page_size',
+    })
+
+    if (topicId !== undefined) {
+      const topic = await this.prisma.chu_de.findUnique({
+        where: { id: topicId },
+        select: { id: true, user_id: true },
+      })
+
+      if (!topic) {
+        throw new NotFoundException('Khong tim thay chu de')
+      }
+
+      if (topic.user_id !== null && topic.user_id !== parsedUserId) {
+        throw new ForbiddenException('Ban khong co quyen truy cap chu de nay')
+      }
+    }
+
+    const where =
+      parsedUserId === undefined
+        ? {
+            ...(topicId !== undefined ? { chu_de_id: topicId } : {}),
+            chu_de: {
+              is: {
+                user_id: null,
+              },
+            },
+          }
+        : {
+            ...(topicId !== undefined ? { chu_de_id: topicId } : {}),
+            chu_de: {
+              is: {
+                OR: [{ user_id: null }, { user_id: parsedUserId }],
+              },
+            },
+          }
+
+    const [totalItems, items] = await Promise.all([
+      this.prisma.tu_vung.count({ where }),
+      this.prisma.tu_vung.findMany({
+        where,
+        orderBy: {
+          id: 'asc',
+        },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+      }),
+    ])
+
+    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize))
+
+    return {
+      items,
+      pagination: {
+        page,
+        page_size: pageSize,
+        total_items: totalItems,
+        total_pages: totalPages,
+      },
+    }
   }
 
   async findOne(id: number, userId?: unknown) {

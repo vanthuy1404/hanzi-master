@@ -19,6 +19,10 @@ model users {
   role_id       Int?
   created_at    DateTime? @default(now()) @db.Timestamp(6)
   chu_de        chu_de[]
+  luyen_tap_dich luyen_tap_dich[]
+  lich_su_hoc   lich_su_hoc[]
+  ket_ban_gui   ket_ban[]        @relation("ket_ban_user")
+  ket_ban_nhan  ket_ban[]        @relation("ket_ban_friend")
 }
 
 model chu_de {
@@ -34,11 +38,18 @@ model chu_de {
 }
 
 model lich_su_hoc {
-  id         Int       @id @default(autoincrement())
-  user_id    Int?
-  tu_vung_id Int?
-  is_correct Boolean?
-  created_at DateTime? @default(now()) @db.Timestamp(6)
+  id                Int             @id @default(autoincrement())
+  user_id           Int
+  luyen_tap_dich_id Int
+  tong_so_cau       Int
+  so_cau_dung       Int
+  diem              Float
+  created_at        DateTime?       @default(now()) @db.Timestamp(6)
+  user              users           @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  luyen_tap_dich    luyen_tap_dich  @relation(fields: [luyen_tap_dich_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([user_id], map: "idx_lich_su_hoc_user_id")
+  @@index([luyen_tap_dich_id], map: "idx_lich_su_hoc_luyen_tap_dich_id")
 }
 
 model tu_vung {
@@ -65,6 +76,8 @@ model ket_ban {
   friend_id  Int
   trang_thai String    @default("pending") @db.VarChar(20)
   created_at DateTime? @default(now()) @db.Timestamp(6)
+  user       users     @relation("ket_ban_user", fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  friend     users     @relation("ket_ban_friend", fields: [friend_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   @@unique([user_id, friend_id], map: "uq_ket_ban_user_friend")
   @@index([user_id], map: "idx_ket_ban_user")
@@ -81,4 +94,30 @@ model lich_su_chat {
 
   @@index([user_id, friend_id, created_at], map: "idx_lich_su_chat_pair_created")
   @@index([friend_id, user_id, created_at], map: "idx_lich_su_chat_reverse_pair_created")
+}
+
+model luyen_tap_dich {
+  id         Int       @id @default(autoincrement())
+  user_id    Int?
+  topic_ids  Int[]
+  so_cau     Int
+  level      String    @default("trung_binh") @db.VarChar(20)
+  noi_dung   Json
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+  user       users?    @relation(fields: [user_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+  lich_su_hoc lich_su_hoc[]
+
+  @@index([user_id], map: "idx_luyen_tap_dich_user_id")
+}
+
+model danh_muc_prompt {
+  id         Int       @id @default(autoincrement())
+  ma         String    @db.VarChar(100)
+  level      String    @db.VarChar(20)
+  noi_dung   String
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+  updated_at DateTime? @default(now()) @db.Timestamp(6)
+
+  @@unique([ma, level], map: "uq_danh_muc_prompt_ma_level")
+  @@index([ma], map: "idx_danh_muc_prompt_ma")
 }

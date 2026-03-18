@@ -7,6 +7,7 @@ import { VocabulariesModule } from './tu-vung/vocabulary.module'
 import { AuthModule } from './auth/auth.module'
 import { FriendModule } from './ket-ban/friend.module'
 import { ChatModule } from './chat/chat.module'
+import { TranslationPracticeModule } from './luyen-tap-dich/translation-practice.module'
 
 @Module({
   imports: [
@@ -17,7 +18,8 @@ import { ChatModule } from './chat/chat.module'
     VocabulariesModule,
     AuthModule,
     FriendModule,
-    ChatModule
+    ChatModule,
+    TranslationPracticeModule,
   ],
   controllers: [AppController],
   providers: [AppService],

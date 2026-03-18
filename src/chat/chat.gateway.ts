@@ -8,6 +8,7 @@ import {
 } from '@nestjs/websockets'
 import { Server, Socket } from 'socket.io'
 import { ChatService } from './chat.service'
+import { OnlineStatusService } from './online-status.service'
 
 type JoinChatPayload = {
   user_id?: number
@@ -28,10 +29,44 @@ export class ChatGateway implements OnGatewayInit {
   @WebSocketServer()
   server: Server
 
-  constructor(private readonly chatService: ChatService) {}
+  constructor(
+    private readonly chatService: ChatService,
+    private readonly onlineStatusService: OnlineStatusService,
+  ) {}
 
   afterInit() {
     // noop
+  }
+
+  handleDisconnect(client: Socket) {
+    const userId = Number(client.data?.user_id)
+    if (Number.isInteger(userId) && userId > 0) {
+      this.onlineStatusService.markOffline(userId)
+      this.server.emit('presence_changed', { user_id: userId, is_online: false })
+    }
+  }
+
+  @SubscribeMessage('register_user')
+  handleRegisterUser(
+    @MessageBody() payload: { user_id?: number },
+    @ConnectedSocket() client: Socket,
+  ) {
+    const userId = Number(payload?.user_id)
+    if (!Number.isInteger(userId) || userId <= 0) {
+      return {
+        event: 'register_failed',
+        data: { message: 'user_id khong hop le' },
+      }
+    }
+
+    client.data.user_id = userId
+    this.onlineStatusService.markOnline(userId)
+    this.server.emit('presence_changed', { user_id: userId, is_online: true })
+
+    return {
+      event: 'registered_user',
+      data: { user_id: userId },
+    }
   }
 
   @SubscribeMessage('join_chat')
@@ -41,6 +76,11 @@ export class ChatGateway implements OnGatewayInit {
   ) {
     const user_id = Number(payload.user_id)
     const friend_id = Number(payload.friend_id)
+    if (Number.isInteger(user_id) && user_id > 0 && !client.data?.user_id) {
+      client.data.user_id = user_id
+      this.onlineStatusService.markOnline(user_id)
+      this.server.emit('presence_changed', { user_id, is_online: true })
+    }
     const room = this.chatService.buildRoomId(user_id, friend_id)
 
     client.join(room)

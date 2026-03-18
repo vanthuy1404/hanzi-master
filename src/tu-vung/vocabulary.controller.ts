@@ -22,6 +22,21 @@ export class VocabulariesController {
     return this.vocabulariesService.findAll(userId)
   }
 
+  @Get('flash-cards')
+  findFlashCards(
+    @Query('user_id') userId?: string,
+    @Query('chu_de_id') chuDeId?: string,
+    @Query('page') page?: string,
+    @Query('page_size') pageSize?: string,
+  ) {
+    return this.vocabulariesService.findFlashCards({
+      user_id: userId,
+      chu_de_id: chuDeId,
+      page,
+      page_size: pageSize,
+    })
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string, @Query('user_id') userId?: string) {
     return this.vocabulariesService.findOne(Number(id), userId)

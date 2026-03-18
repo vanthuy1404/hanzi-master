@@ -29,4 +29,16 @@ export class AuthController {
   me(@Req() req) {
     return this.authService.getMe(req.user?.sub)
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('profile-summary')
+  profileSummary(@Req() req) {
+    return this.authService.getProfileSummary(req.user?.sub)
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('change-password')
+  changePassword(@Req() req, @Body() body) {
+    return this.authService.changePassword(req.user?.sub, body)
+  }
 }
