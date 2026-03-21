@@ -142,6 +142,24 @@ export default function BanBePage() {
       );
     });
 
+    socket.on("friend_request_received", () => {
+      if (userId) {
+        loadData(userId).catch(() => {});
+      }
+    });
+
+    socket.on("friend_request_sent", () => {
+      if (userId) {
+        loadData(userId).catch(() => {});
+      }
+    });
+
+    socket.on("friend_request_accepted", () => {
+      if (userId) {
+        loadData(userId).catch(() => {});
+      }
+    });
+
     return () => {
       socket.disconnect();
       socketRef.current = null;

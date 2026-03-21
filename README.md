@@ -44,3 +44,21 @@ Kich ban:
 - Cac route con lai proxy ve Next.js
 
 Nhu vay frontend va backend cung di qua 1 domain/1 cong public.
+
+## 4. Deploy frontend tren Render
+
+Repo da co san file `render.yaml` cho frontend.
+
+### Cach deploy nhanh
+
+1. Push code len GitHub.
+2. Tren Render, chon **New +** -> **Blueprint**.
+3. Chon repo `chinese-learning-frontend`.
+4. Render se tao 1 Node Web Service theo `render.yaml`.
+5. Set env `NEXT_PUBLIC_API_BASE_URL` = URL backend Render
+   (vi du: `https://chinese-learning-api.onrender.com`).
+6. Deploy.
+
+Build/Start:
+- Build: `npm ci && npm run build`
+- Start: `npm run start`
