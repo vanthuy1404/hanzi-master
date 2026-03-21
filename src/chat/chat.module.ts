@@ -7,6 +7,6 @@ import { OnlineStatusService } from './online-status.service'
 @Module({
   imports: [PrismaModule],
   providers: [ChatGateway, ChatService, OnlineStatusService],
-  exports: [OnlineStatusService],
+  exports: [OnlineStatusService, ChatGateway],
 })
 export class ChatModule {}

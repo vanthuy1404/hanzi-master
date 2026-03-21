@@ -4,6 +4,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common'
+import { ChatGateway } from '../chat/chat.gateway'
 import { OnlineStatusService } from '../chat/online-status.service'
 import { PrismaService } from '../prisma/prisma.service'
 
@@ -22,6 +23,7 @@ export class FriendService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly onlineStatusService: OnlineStatusService,
+    private readonly chatGateway: ChatGateway,
   ) {}
 
   async sendFriendRequest(input: FriendRequestInput) {
@@ -53,6 +55,15 @@ export class FriendService {
         user_id,
         friend_id,
       },
+    })
+
+    this.chatGateway.emitToUser(friend_id, 'friend_request_received', {
+      request_id: request.id,
+      from_user_id: user_id,
+    })
+    this.chatGateway.emitToUser(user_id, 'friend_request_sent', {
+      request_id: request.id,
+      to_user_id: friend_id,
     })
 
     return {
@@ -101,6 +112,17 @@ export class FriendService {
       data: {
         trang_thai: 'accepted',
       },
+    })
+
+    this.chatGateway.emitToUser(user_id, 'friend_request_accepted', {
+      user_id,
+      friend_id,
+      request_id: updatedRequest.id,
+    })
+    this.chatGateway.emitToUser(friend_id, 'friend_request_accepted', {
+      user_id,
+      friend_id,
+      request_id: updatedRequest.id,
     })
 
     return {
@@ -243,6 +265,17 @@ export class FriendService {
       data: {
         trang_thai: 'accepted',
       },
+    })
+
+    this.chatGateway.emitToUser(updated.user_id, 'friend_request_accepted', {
+      user_id: updated.user_id,
+      friend_id: updated.friend_id,
+      request_id: updated.id,
+    })
+    this.chatGateway.emitToUser(updated.friend_id, 'friend_request_accepted', {
+      user_id: updated.user_id,
+      friend_id: updated.friend_id,
+      request_id: updated.id,
     })
 
     return {

@@ -38,6 +38,10 @@ export class ChatGateway implements OnGatewayInit {
     // noop
   }
 
+  emitToUser(userId: number, event: string, data: unknown) {
+    this.server.to(`user_${userId}`).emit(event, data)
+  }
+
   handleDisconnect(client: Socket) {
     const userId = Number(client.data?.user_id)
     if (Number.isInteger(userId) && userId > 0) {
@@ -59,7 +63,14 @@ export class ChatGateway implements OnGatewayInit {
       }
     }
 
+    const prevUserId = Number(client.data?.user_id)
+    if (Number.isInteger(prevUserId) && prevUserId > 0 && prevUserId !== userId) {
+      this.onlineStatusService.markOffline(prevUserId)
+      this.server.emit('presence_changed', { user_id: prevUserId, is_online: false })
+    }
+
     client.data.user_id = userId
+    client.join(`user_${userId}`)
     this.onlineStatusService.markOnline(userId)
     this.server.emit('presence_changed', { user_id: userId, is_online: true })
 

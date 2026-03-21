@@ -509,3 +509,24 @@ npx prisma generate
 npm run build
 npm run start:dev
 ```
+
+## 7. Deploy tren Render
+
+Repo da co san file `render.yaml` cho backend.
+
+### Cach deploy nhanh
+
+1. Push code len GitHub.
+2. Tren Render, chon **New +** -> **Blueprint**.
+3. Chon repo `chinese-learning-api`.
+4. Render se doc `render.yaml` va tao 1 Web Service.
+5. Tao PostgreSQL tren Render, copy `External Database URL` vao env `DATABASE_URL`.
+6. Set them env:
+   - `JWT_SECRET`: bat buoc.
+   - `JWT_EXPIRES_IN`: mac dinh da la `7d`.
+   - `GEMINI_API_KEY`: chi can neu dung tinh nang generate bai tap.
+7. Deploy.
+
+Build/Start da duoc cau hinh:
+- Build: `npm ci && npx prisma generate && npm run build`
+- Start: `npx prisma migrate deploy && npm run start:prod`
