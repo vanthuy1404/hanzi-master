@@ -7,6 +7,8 @@ import {
 } from '@nestjs/common'
 import { JwtService } from '@nestjs/jwt'
 import { compare, hash } from 'bcryptjs'
+import { existsSync, unlinkSync } from 'fs'
+import { join } from 'path'
 import { PrismaService } from '../prisma/prisma.service'
 
 type RegisterInput = {
@@ -23,6 +25,11 @@ type LoginInput = {
 type ChangePasswordInput = {
   old_password?: string
   new_password?: string
+}
+
+type AvatarUploadFile = {
+  filename: string
+  mimetype?: string
 }
 
 @Injectable()
@@ -62,6 +69,7 @@ export class AuthService {
         id: true,
         username: true,
         email: true,
+        avatar_url: true,
         role_id: true,
         created_at: true,
       },
@@ -107,6 +115,7 @@ export class AuthService {
         id: user.id,
         username: user.username,
         email: user.email,
+        avatar_url: user.avatar_url,
         role_id: user.role_id,
       },
     }
@@ -123,6 +132,7 @@ export class AuthService {
         id: true,
         username: true,
         email: true,
+        avatar_url: true,
         role_id: true,
         created_at: true,
       },
@@ -146,6 +156,7 @@ export class AuthService {
         id: true,
         username: true,
         email: true,
+        avatar_url: true,
         role_id: true,
         created_at: true,
       },
@@ -155,7 +166,7 @@ export class AuthService {
       throw new NotFoundException('khong tim thay nguoi dung')
     }
 
-    const [historyList, diemStats, practiceDistinct] = await Promise.all([
+    const [historyList, expStats, tongSoBaiDaLam] = await Promise.all([
       this.prisma.lich_su_hoc.findMany({
         where: {
           user_id: userId,
@@ -172,23 +183,25 @@ export class AuthService {
               topic_ids: true,
             },
           },
+          sap_xep_cau: {
+            select: {
+              id: true,
+              topic_ids: true,
+            },
+          },
         },
       }),
-      this.prisma.lich_su_hoc.aggregate({
+      this.prisma.diem_kinh_nghiem.aggregate({
         where: {
           user_id: userId,
         },
         _sum: {
-          diem: true,
+          exp: true,
         },
       }),
-      this.prisma.lich_su_hoc.findMany({
+      this.prisma.lich_su_hoc.count({
         where: {
           user_id: userId,
-        },
-        distinct: ['luyen_tap_dich_id'],
-        select: {
-          luyen_tap_dich_id: true,
         },
       }),
     ])
@@ -196,19 +209,42 @@ export class AuthService {
     return {
       user,
       stats: {
-        so_bai_luyen_tap: practiceDistinct.length,
-        tong_diem_kinh_nghiem: Number((diemStats._sum.diem ?? 0).toFixed(2)),
+        so_bai_luyen_tap: tongSoBaiDaLam,
+        tong_diem_kinh_nghiem: expStats._sum.exp ?? 0,
       },
-      history: historyList.map((item) => ({
-        id: item.id,
-        created_at: item.created_at,
-        luyen_tap_dich_id: item.luyen_tap_dich_id,
-        tong_so_cau: item.tong_so_cau,
-        so_cau_dung: item.so_cau_dung,
-        diem: item.diem,
-        level: item.luyen_tap_dich.level,
-        topic_ids: item.luyen_tap_dich.topic_ids,
-      })),
+      history: historyList
+        .map((item) => {
+          if (item.luyen_tap_dich_id && item.luyen_tap_dich) {
+            return {
+              id: item.id,
+              created_at: item.created_at,
+              loai_bai: 'luyen_tap_dich',
+              bai_tap_id: item.luyen_tap_dich_id,
+              tong_so_cau: item.tong_so_cau,
+              so_cau_dung: item.so_cau_dung,
+              diem: item.diem,
+              level: item.luyen_tap_dich.level,
+              topic_ids: item.luyen_tap_dich.topic_ids,
+            }
+          }
+
+          if (item.sap_xep_cau_id && item.sap_xep_cau) {
+            return {
+              id: item.id,
+              created_at: item.created_at,
+              loai_bai: 'sap_xep_cau',
+              bai_tap_id: item.sap_xep_cau_id,
+              tong_so_cau: item.tong_so_cau,
+              so_cau_dung: item.so_cau_dung,
+              diem: item.diem,
+              level: null,
+              topic_ids: item.sap_xep_cau.topic_ids,
+            }
+          }
+
+          return null
+        })
+        .filter((item): item is NonNullable<typeof item> => item !== null),
     }
   }
 
@@ -259,6 +295,67 @@ export class AuthService {
 
     return {
       message: 'doi mat khau thanh cong',
+    }
+  }
+
+  async uploadAvatar(userId: number | undefined, avatarFile?: AvatarUploadFile) {
+    if (!userId) {
+      throw new UnauthorizedException('token khong hop le')
+    }
+
+    if (!avatarFile) {
+      throw new BadRequestException('vui long chon file anh')
+    }
+
+    const mime = (avatarFile.mimetype || '').toLowerCase()
+    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp']
+    if (!allowedMimeTypes.includes(mime)) {
+      throw new BadRequestException('chi ho tro anh jpg, png hoac webp')
+    }
+
+    const user = await this.prisma.users.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        avatar_url: true,
+        role_id: true,
+        created_at: true,
+      },
+    })
+
+    if (!user) {
+      throw new NotFoundException('khong tim thay nguoi dung')
+    }
+
+    const avatarUrl = `/public/avatars/${avatarFile.filename}`
+    const updatedUser = await this.prisma.users.update({
+      where: { id: userId },
+      data: {
+        avatar_url: avatarUrl,
+      },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        avatar_url: true,
+        role_id: true,
+        created_at: true,
+      },
+    })
+
+    if (user.avatar_url?.startsWith('/public/avatars/')) {
+      const oldFileName = user.avatar_url.replace('/public/avatars/', '')
+      const oldFilePath = join(process.cwd(), 'public', 'avatars', oldFileName)
+      if (existsSync(oldFilePath)) {
+        unlinkSync(oldFilePath)
+      }
+    }
+
+    return {
+      message: 'cap nhat avatar thanh cong',
+      user: updatedUser,
     }
   }
 }

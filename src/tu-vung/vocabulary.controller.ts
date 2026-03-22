@@ -37,6 +37,19 @@ export class VocabulariesController {
     })
   }
 
+  @Get('random')
+  findRandomByTopic(
+    @Query('chu_de_id') chuDeId?: string,
+    @Query('so_luong') soLuong?: string,
+    @Query('user_id') userId?: string,
+  ) {
+    return this.vocabulariesService.findRandomByTopic({
+      chu_de_id: chuDeId,
+      so_luong: soLuong,
+      user_id: userId,
+    })
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string, @Query('user_id') userId?: string) {
     return this.vocabulariesService.findOne(Number(id), userId)
@@ -61,6 +74,16 @@ export class VocabulariesController {
     const chuDeId = body?.chu_de_id ?? chuDeIdQuery
     const userId = body?.user_id ?? userIdQuery
     return this.vocabulariesService.createBulk(data, chuDeId, userId)
+  }
+
+  @Post('generate')
+  generate(@Body() body, @Query('user_id') userIdQuery?: string) {
+    const userId = body?.user_id ?? userIdQuery
+    return this.vocabulariesService.generateByAi({
+      chu_de_id: body?.chu_de_id,
+      so_luong: body?.so_luong,
+      user_id: userId,
+    })
   }
 
   @Post('bulk/excel')

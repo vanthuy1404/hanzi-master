@@ -15,12 +15,15 @@ model users {
   id            Int       @id @default(autoincrement())
   username      String?   @unique @db.VarChar(50)
   email         String?   @db.VarChar(100)
+  avatar_url    String?   @db.VarChar(500)
   password_hash String?
   role_id       Int?
   created_at    DateTime? @default(now()) @db.Timestamp(6)
   chu_de        chu_de[]
   luyen_tap_dich luyen_tap_dich[]
+  sap_xep_cau   sap_xep_cau[]
   lich_su_hoc   lich_su_hoc[]
+  diem_kinh_nghiem diem_kinh_nghiem[]
   ket_ban_gui   ket_ban[]        @relation("ket_ban_user")
   ket_ban_nhan  ket_ban[]        @relation("ket_ban_friend")
 }
@@ -40,16 +43,19 @@ model chu_de {
 model lich_su_hoc {
   id                Int             @id @default(autoincrement())
   user_id           Int
-  luyen_tap_dich_id Int
+  luyen_tap_dich_id Int?
+  sap_xep_cau_id    Int?
   tong_so_cau       Int
   so_cau_dung       Int
   diem              Float
   created_at        DateTime?       @default(now()) @db.Timestamp(6)
   user              users           @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  luyen_tap_dich    luyen_tap_dich  @relation(fields: [luyen_tap_dich_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  luyen_tap_dich    luyen_tap_dich? @relation(fields: [luyen_tap_dich_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  sap_xep_cau       sap_xep_cau?    @relation(fields: [sap_xep_cau_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
   @@index([user_id], map: "idx_lich_su_hoc_user_id")
   @@index([luyen_tap_dich_id], map: "idx_lich_su_hoc_luyen_tap_dich_id")
+  @@index([sap_xep_cau_id], map: "idx_lich_su_hoc_sap_xep_cau_id")
 }
 
 model tu_vung {
@@ -120,4 +126,25 @@ model danh_muc_prompt {
 
   @@unique([ma, level], map: "uq_danh_muc_prompt_ma_level")
   @@index([ma], map: "idx_danh_muc_prompt_ma")
+}
+
+model diem_kinh_nghiem {
+  id      Int   @id @default(autoincrement())
+  user_id Int
+  exp     Int
+  user    users @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@index([user_id], map: "idx_diem_kinh_nghiem_user_id")
+}
+
+model sap_xep_cau {
+  id       Int    @id @default(autoincrement())
+  user_id  Int?
+  so_cau   Int
+  topic_ids Int[]
+  noi_dung Json
+  lich_su_hoc lich_su_hoc[]
+  user     users? @relation(fields: [user_id], references: [id], onDelete: SetNull, onUpdate: Cascade)
+
+  @@index([user_id], map: "idx_sap_xep_cau_user_id")
 }

@@ -12,6 +12,7 @@ import { PrismaService } from '../prisma/prisma.service'
 type GenerateTranslationPracticeItem = {
   question: string
   answer: string
+  answer_hanzi: string
 }
 
 type GenerateTranslationPracticeResult = {
@@ -158,10 +159,12 @@ export class TranslationPracticeService {
       `Hay tao dung ${soCau} cau hoi.`,
       'Phan bo da dang thanh phan ngu phap: trang ngu thoi gian, noi chon, tan suat, muc do, phu dinh, cau hoi, tinh thai lich su.',
       'Khuyen khich dung dong tu tinh trang va cum dong tu pho bien trong giao tiep doi song.',
-      'Answer phai la pinyin plain khong dau thanh, viet thuong. Cho phep nhieu dap an linh hoat cach nhau boi dau |.',
+      'Moi item bat buoc co du 3 truong: question, answer, answer_hanzi.',
+      'answer phai la pinyin plain khong dau thanh, viet thuong. Cho phep nhieu dap an linh hoat cach nhau boi dau |.',
+      'answer_hanzi la dap an hanzi tuong ung. Cho phep nhieu dap an linh hoat cach nhau boi dau |.',
       'Chi su dung tu vung trong danh sach cho san lam hat nhan. Duoc phep them hu tu, dai tu, gioi tu, tro tu de cau tu nhien.',
       'Can bang do dai cau: co cau ngan, cau vua, va mot so cau dai hon co 2 ve.',
-      'Tra ve DUNG JSON theo format: {"items":[{"question":"...","answer":"..."}]}. Khong them bat ky text nao ben ngoai JSON.',
+      'Tra ve DUNG JSON theo format: {"items":[{"question":"...","answer":"...","answer_hanzi":"..."}]}. Khong them bat ky text nao ben ngoai JSON.',
       'Danh sach tu vung:',
       ...vocabLines,
     ].join('\n')
@@ -177,12 +180,14 @@ export class TranslationPracticeService {
       .map((item) => {
         const question = String(item?.question ?? '').trim()
         const answer = String(item?.answer ?? '').trim()
+        const answerHanzi = String((item as { answer_hanzi?: unknown })?.answer_hanzi ?? '').trim()
         if (!question || !answer) {
           return null
         }
         return {
           question,
           answer,
+          answer_hanzi: answerHanzi,
         }
       })
       .filter((item): item is GenerateTranslationPracticeItem => item !== null)
@@ -203,10 +208,11 @@ export class TranslationPracticeService {
       .map((item) => {
         const question = String((item as { question?: unknown })?.question ?? '').trim()
         const answer = String((item as { answer?: unknown })?.answer ?? '').trim()
+        const answerHanzi = String((item as { answer_hanzi?: unknown })?.answer_hanzi ?? '').trim()
         if (!question || !answer) {
           return null
         }
-        return { question, answer }
+        return { question, answer, answer_hanzi: answerHanzi }
       })
       .filter((item): item is GenerateTranslationPracticeItem => item !== null)
 
@@ -221,11 +227,19 @@ export class TranslationPracticeService {
     return soCau ? normalized.slice(0, soCau) : normalized
   }
 
-  private normalizeUserAnswer(value: string) {
+  private normalizePinyinAnswer(value: string) {
     return value
       .toLowerCase()
       .replace(/[^a-z0-9\s]/g, ' ')
       .replace(/\s+/g, ' ')
+      .trim()
+  }
+
+  private normalizeHanziAnswer(value: string) {
+    return value
+      .toLowerCase()
+      .replace(/\s+/g, '')
+      .replace(/[.,!?;:'"`~@#$%^&*()_+\-=\[\]{}\\|<>/，。！？、；：·…]/g, '')
       .trim()
   }
 
@@ -364,12 +378,12 @@ export class TranslationPracticeService {
 
   private getFallbackPromptByLevel(level: string) {
     if (level === 'de') {
-      return 'Ban la tro ly tao bai tap dich tu tieng Viet sang pinyin plain cho nguoi moi bat dau. Tao cau ngan, ro rang, de hieu, uu tien mau cau don gian.'
+      return 'Ban la tro ly tao bai tap dich tu tieng Viet sang tieng Trung cho nguoi moi bat dau. Tao cau ngan, ro rang, de hieu. Moi item phai co question, answer (pinyin_plain), answer_hanzi.'
     }
     if (level === 'kho') {
-      return 'Ban la tro ly tao bai tap dich tu tieng Viet sang pinyin plain cho muc do kha-gioi. Tao cau co cau truc da tang, nhieu thanh phan, va tinh hoi thoai tu nhien.'
+      return 'Ban la tro ly tao bai tap dich tu tieng Viet sang tieng Trung cho muc do kha-gioi. Tao cau co cau truc da tang, nhieu thanh phan, va tinh hoi thoai tu nhien. Moi item phai co question, answer (pinyin_plain), answer_hanzi.'
     }
-    return 'Ban la tro ly tao bai tap dich tu tieng Viet sang pinyin plain cho nguoi hoc giao tiep. Tao cau tu nhien, da dang, do kho trung binh.'
+    return 'Ban la tro ly tao bai tap dich tu tieng Viet sang tieng Trung cho nguoi hoc giao tiep. Tao cau tu nhien, da dang, do kho trung binh. Moi item phai co question, answer (pinyin_plain), answer_hanzi.'
   }
 
   private async getPromptTemplate(level: string) {
@@ -508,19 +522,27 @@ export class TranslationPracticeService {
 
     const details = items.map((item, index) => {
       const userAnswer = submittedAnswers[index] ?? ''
-      const normalizedUserAnswer = this.normalizeUserAnswer(userAnswer)
-      const acceptedAnswers = item.answer
+      const normalizedUserPinyin = this.normalizePinyinAnswer(userAnswer)
+      const normalizedUserHanzi = this.normalizeHanziAnswer(userAnswer)
+      const acceptedPinyinAnswers = item.answer
         .split('|')
-        .map((part) => this.normalizeUserAnswer(part))
+        .map((part) => this.normalizePinyinAnswer(part))
+        .filter((part) => part.length > 0)
+      const acceptedHanziAnswers = item.answer_hanzi
+        .split('|')
+        .map((part) => this.normalizeHanziAnswer(part))
         .filter((part) => part.length > 0)
 
-      const isCorrect = acceptedAnswers.includes(normalizedUserAnswer)
+      const isCorrect =
+        acceptedPinyinAnswers.includes(normalizedUserPinyin) ||
+        acceptedHanziAnswers.includes(normalizedUserHanzi)
 
       return {
         index: index + 1,
         question: item.question,
         user_answer: userAnswer,
         system_answer: item.answer,
+        system_answer_hanzi: item.answer_hanzi,
         is_correct: isCorrect,
       }
     })

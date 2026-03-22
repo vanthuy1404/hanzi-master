@@ -2,8 +2,10 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common'
+import { ConfigService } from '@nestjs/config'
 import { PrismaService } from '../prisma/prisma.service'
 import * as XLSX from 'xlsx'
 
@@ -17,9 +19,31 @@ type VocabularyInputItem = {
   example_vi?: string
 }
 
+type GenerateVocabularyInput = {
+  chu_de_id?: unknown
+  so_luong?: unknown
+  user_id?: unknown
+}
+
+type RandomVocabularyInput = {
+  chu_de_id?: unknown
+  so_luong?: unknown
+  user_id?: unknown
+}
+
+type GenerateVocabularyResult = {
+  items?: unknown
+}
+
 @Injectable()
 export class VocabulariesService {
-  constructor(private prisma: PrismaService) {}
+  private readonly promptCode = 'prompt-tu-vung'
+  private readonly promptLevel = 'mac_dinh'
+
+  constructor(
+    private prisma: PrismaService,
+    private configService: ConfigService,
+  ) {}
 
   private normalizeString(value: unknown) {
     if (value === undefined || value === null) {
@@ -34,6 +58,25 @@ export class VocabulariesService {
     const parsed = Number(chuDeId)
     if (!Number.isInteger(parsed) || parsed <= 0) {
       throw new BadRequestException('chu_de_id khong hop le')
+    }
+    return parsed
+  }
+
+  private normalizeGenerateCount(value: unknown) {
+    const parsed = Number(value)
+    if (!Number.isInteger(parsed) || parsed <= 0 || parsed > 100) {
+      throw new BadRequestException('so_luong phai la so nguyen trong khoang 1..100')
+    }
+    return parsed
+  }
+
+  private normalizeRandomCount(value: unknown) {
+    if (value === undefined || value === null || value === '') {
+      return 10
+    }
+    const parsed = Number(value)
+    if (!Number.isInteger(parsed) || parsed <= 0 || parsed > 500) {
+      throw new BadRequestException('so_luong phai la so nguyen trong khoang 1..500')
     }
     return parsed
   }
@@ -249,6 +292,154 @@ export class VocabulariesService {
     })
   }
 
+  private cleanGeminiText(rawText: string) {
+    return rawText
+      .replace(/^```json\s*/i, '')
+      .replace(/^```\s*/i, '')
+      .replace(/\s*```$/i, '')
+      .trim()
+  }
+
+  private async ensureReadableTopic(chuDeId: number, userId?: number) {
+    const topic = await this.prisma.chu_de.findUnique({
+      where: { id: chuDeId },
+      select: {
+        id: true,
+        user_id: true,
+        ten_chu_de: true,
+        mo_ta: true,
+      },
+    })
+
+    if (!topic) {
+      throw new NotFoundException('Khong tim thay chu de')
+    }
+
+    if (topic.user_id !== null && topic.user_id !== userId) {
+      throw new ForbiddenException('Ban khong co quyen truy cap chu de nay')
+    }
+
+    return topic
+  }
+
+  private buildGeneratePrompt(input: {
+    basePrompt: string
+    topicName: string
+    topicDescription: string
+    soLuong: number
+    existingHanziList: string[]
+  }) {
+    const existingLines = input.existingHanziList
+      .slice(0, 300)
+      .map((hanzi, index) => `${index + 1}. ${hanzi}`)
+
+    return [
+      input.basePrompt,
+      `Chu de: ${input.topicName || 'Khong ro ten chu de'}.`,
+      `Mo ta chu de: ${input.topicDescription || 'Khong co mo ta'}.`,
+      `Hay tao dung ${input.soLuong} tu vung moi lien quan den chu de.`,
+      'Khong duoc tao trung voi cac tu da co san theo hanzi hoac pinyin_plain.',
+      'Tra ve DUY NHAT JSON theo dinh dang: {"items":[{"hanzi":"...","pinyin":"...","pinyin_plain":"...","nghia_vi":"...","nghia_en":"...","example_cn":"...","example_vi":"..."}]}. Khong them text nao ben ngoai JSON.',
+      'Yeu cau du lieu:',
+      '- hanzi bat buoc co.',
+      '- pinyin co dau thanh, pinyin_plain viet thuong khong dau.',
+      '- nghia_vi ngan gon, de hieu.',
+      '- nghia_en, example_cn, example_vi co the de rong neu khong can.',
+      'Danh sach hanzi da co trong chu de (chi de tranh lap):',
+      ...existingLines,
+    ].join('\n')
+  }
+
+  private getFallbackPromptTemplate() {
+    return 'Ban la tro ly tao du lieu tu vung tieng Trung theo chu de cho nguoi hoc tieng Trung.'
+  }
+
+  private async getPromptTemplate() {
+    const prompt = await this.prisma.danh_muc_prompt.findFirst({
+      where: {
+        ma: this.promptCode,
+        level: this.promptLevel,
+      },
+      select: {
+        noi_dung: true,
+      },
+    })
+
+    return prompt?.noi_dung?.trim() || this.getFallbackPromptTemplate()
+  }
+
+  private normalizeGeneratedItems(payload: unknown, soLuong: number) {
+    const items = (payload as GenerateVocabularyResult)?.items
+    if (!Array.isArray(items) || !items.length) {
+      throw new InternalServerErrorException('AI khong tra ve danh sach items hop le')
+    }
+
+    const normalized = items
+      .map((item) => ({
+        hanzi: this.normalizeString((item as VocabularyInputItem)?.hanzi),
+        pinyin: this.normalizeString((item as VocabularyInputItem)?.pinyin),
+        pinyin_plain: this.normalizeString((item as VocabularyInputItem)?.pinyin_plain)?.toLowerCase(),
+        nghia_vi: this.normalizeString((item as VocabularyInputItem)?.nghia_vi),
+        nghia_en: this.normalizeString((item as VocabularyInputItem)?.nghia_en),
+        example_cn: this.normalizeString((item as VocabularyInputItem)?.example_cn),
+        example_vi: this.normalizeString((item as VocabularyInputItem)?.example_vi),
+      }))
+      .filter((item) => item.hanzi)
+
+    if (!normalized.length) {
+      throw new InternalServerErrorException('Khong co tu vung hop le sau khi xu ly response tu AI')
+    }
+
+    return normalized.slice(0, soLuong)
+  }
+
+  private async generateByGemini(prompt: string) {
+    const apiKey = this.configService.get<string>('GEMINI_API_KEY')?.trim()
+    const apiUrl =
+      this.configService.get<string>('GEMINI_API_URL')?.trim() ||
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent'
+
+    if (!apiKey) {
+      throw new InternalServerErrorException('Thieu GEMINI_API_KEY trong env')
+    }
+
+    const response = await fetch(`${apiUrl}?key=${apiKey}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+      }),
+    })
+
+    const responseText = await response.text()
+    if (!response.ok) {
+      throw new InternalServerErrorException(`Gemini API loi (${response.status}): ${responseText}`)
+    }
+
+    let parsedApiResponse: any
+    try {
+      parsedApiResponse = JSON.parse(responseText)
+    } catch (error) {
+      throw new InternalServerErrorException(`Khong parse duoc JSON tu Gemini: ${String(error)}`)
+    }
+
+    const rawText = parsedApiResponse?.candidates?.[0]?.content?.parts?.[0]?.text
+    if (!rawText || typeof rawText !== 'string') {
+      throw new InternalServerErrorException('Gemini response khong dung dinh dang text')
+    }
+
+    const cleaned = this.cleanGeminiText(rawText)
+    try {
+      return JSON.parse(cleaned)
+    } catch (error) {
+      throw new InternalServerErrorException(
+        `Khong parse duoc JSON tu AI generate vocab: ${String(error)} - raw: ${cleaned}`,
+      )
+    }
+  }
+
   async findFlashCards(input: {
     user_id?: unknown
     chu_de_id?: unknown
@@ -327,6 +518,35 @@ export class VocabulariesService {
         total_pages: totalPages,
       },
     }
+  }
+
+  async findRandomByTopic(input: RandomVocabularyInput) {
+    const topicId = this.normalizeTopicId(input.chu_de_id)
+    const soLuong = this.normalizeRandomCount(input.so_luong)
+    const parsedUserId = this.normalizeUserId(input.user_id)
+
+    await this.ensureReadableTopic(topicId, parsedUserId)
+
+    const vocabularies = await this.prisma.tu_vung.findMany({
+      where: {
+        chu_de_id: topicId,
+      },
+      orderBy: {
+        id: 'asc',
+      },
+    })
+
+    if (!vocabularies.length) {
+      return []
+    }
+
+    const shuffled = [...vocabularies]
+    for (let i = shuffled.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+    }
+
+    return shuffled.slice(0, Math.min(soLuong, shuffled.length))
   }
 
   async findOne(id: number, userId?: unknown) {
@@ -507,6 +727,80 @@ export class VocabulariesService {
 
     const items = this.parseVocabularyItemsFromExcel(file.buffer)
     return this.createBulk(items, chuDeId, userId)
+  }
+
+  async generateByAi(input: GenerateVocabularyInput) {
+    const topicId = this.normalizeTopicId(input.chu_de_id)
+    const soLuong = this.normalizeGenerateCount(input.so_luong)
+    const parsedUserId = this.normalizeUserId(input.user_id)
+
+    const topic = await this.ensureReadableTopic(topicId, parsedUserId)
+    const existingItems = await this.prisma.tu_vung.findMany({
+      where: { chu_de_id: topicId },
+      select: {
+        hanzi: true,
+        pinyin_plain: true,
+      },
+      orderBy: { id: 'asc' },
+      take: 500,
+    })
+    const existingHanziList = [
+      ...new Set(
+        existingItems.map((item) => (item.hanzi ?? '').trim()).filter((item) => item.length > 0),
+      ),
+    ]
+    const basePrompt = await this.getPromptTemplate()
+
+    const prompt = this.buildGeneratePrompt({
+      basePrompt,
+      topicName: topic.ten_chu_de ?? '',
+      topicDescription: topic.mo_ta ?? '',
+      soLuong,
+      existingHanziList,
+    })
+    const payload = await this.generateByGemini(prompt)
+    const generated = this.normalizeGeneratedItems(payload, soLuong)
+
+    const existingHanziSet = new Set(
+      existingItems.map((item) => (item.hanzi ?? '').trim()).filter((item) => item.length > 0),
+    )
+    const existingPinyinPlainSet = new Set(
+      existingItems
+        .map((item) => (item.pinyin_plain ?? '').trim().toLowerCase())
+        .filter((item) => item.length > 0),
+    )
+
+    const uniqueHanziSet = new Set<string>()
+    const uniquePinyinPlainSet = new Set<string>()
+    const filtered = generated.filter((item) => {
+      const hanzi = (item.hanzi ?? '').trim()
+      const pinyinPlain = (item.pinyin_plain ?? '').trim().toLowerCase()
+      if (!hanzi || existingHanziSet.has(hanzi) || uniqueHanziSet.has(hanzi)) {
+        return false
+      }
+      if (
+        pinyinPlain &&
+        (existingPinyinPlainSet.has(pinyinPlain) || uniquePinyinPlainSet.has(pinyinPlain))
+      ) {
+        return false
+      }
+      uniqueHanziSet.add(hanzi)
+      if (pinyinPlain) {
+        uniquePinyinPlainSet.add(pinyinPlain)
+      }
+      return true
+    })
+
+    return filtered.map((item) => ({
+      hanzi: item.hanzi,
+      pinyin: item.pinyin,
+      pinyin_plain: item.pinyin_plain,
+      nghia_vi: item.nghia_vi,
+      nghia_en: item.nghia_en,
+      example_cn: item.example_cn,
+      example_vi: item.example_vi,
+      chu_de_id: topicId,
+    }))
   }
 
   async update(

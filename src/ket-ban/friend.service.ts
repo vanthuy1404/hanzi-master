@@ -176,6 +176,7 @@ export class FriendService {
         id: true,
         username: true,
         email: true,
+        avatar_url: true,
         role_id: true,
       },
     })
@@ -317,6 +318,7 @@ export class FriendService {
         id: true,
         username: true,
         email: true,
+        avatar_url: true,
         role_id: true,
       },
     })
@@ -386,6 +388,7 @@ export class FriendService {
         id: true,
         username: true,
         email: true,
+        avatar_url: true,
         role_id: true,
       },
       take: Math.max(limit * 3, limit),
