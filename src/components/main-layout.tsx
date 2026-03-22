@@ -154,8 +154,25 @@ export function MainLayout({ children }: MainLayoutProps) {
             </Link>
           </div>
         </header>
-        {children}
+        <div className="pb-20 lg:pb-0">{children}</div>
       </div>
+
+      <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-primary/10 bg-surface/95 px-2 py-2 backdrop-blur lg:hidden">
+        <div className="grid grid-cols-4 gap-1">
+          {menuItems.map((item) => (
+            <Link
+              key={`mobile-${item.href}`}
+              href={item.href}
+              className={`flex min-h-14 flex-col items-center justify-center rounded-lg px-1 text-[10px] font-medium transition-colors ${
+                pathname === item.href ? "bg-primary/10 text-primary" : "text-muted hover:bg-primary/5"
+              }`}
+            >
+              <span className="material-symbols-outlined text-[19px]">{item.icon}</span>
+              <span className="mt-0.5 truncate">{item.label}</span>
+            </Link>
+          ))}
+        </div>
+      </nav>
     </div>
   );
 }
