@@ -13,6 +13,7 @@ export type AuthUser = {
   id: number;
   username: string;
   email: string | null;
+  avatar_url: string | null;
   role_id: number | null;
   created_at?: string;
 };
@@ -34,11 +35,12 @@ export type MeResponse = {
 export type ProfileHistoryItem = {
   id: number;
   created_at: string;
-  luyen_tap_dich_id: number;
+  loai_bai: "luyen_tap_dich" | "sap_xep_cau";
+  bai_tap_id: number;
   tong_so_cau: number;
   so_cau_dung: number;
   diem: number;
-  level: "de" | "trung_binh" | "kho";
+  level: "de" | "trung_binh" | "kho" | null;
   topic_ids: number[];
 };
 
@@ -55,11 +57,16 @@ export type ChangePasswordResponse = {
   message: string;
 };
 
+export type UploadAvatarResponse = {
+  message: string;
+  user: AuthUser;
+};
+
 type ApiErrorResponse = {
   message?: string | string[];
 };
 
-const API_BASE =
+export const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") || "http://localhost:3000";
 
 const ERROR_MAP: Record<string, string> = {
@@ -70,6 +77,8 @@ const ERROR_MAP: Record<string, string> = {
   "token het han hoac khong hop le": "Phiên đăng nhập đã hết hạn hoặc không hợp lệ.",
   "thieu Authorization header": "Thiếu thông tin xác thực.",
   "khong tim thay nguoi dung": "Không tìm thấy người dùng.",
+  "vui long chon file anh": "Vui lòng chọn ảnh đại diện.",
+  "chi ho tro anh jpg, png hoac webp": "Chỉ hỗ trợ ảnh JPG, PNG hoặc WEBP.",
 };
 
 function normalizeErrorMessage(message: ApiErrorResponse["message"]) {
@@ -92,7 +101,11 @@ async function request<T>(
 ): Promise<T> {
   const token = init?.token;
   const headers = new Headers(init?.headers);
-  headers.set("Content-Type", "application/json");
+  const body = init?.body;
+
+  if (!(body instanceof FormData) && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
 
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);
@@ -109,6 +122,12 @@ async function request<T>(
   }
 
   return (await response.json()) as T;
+}
+
+export function resolveAssetUrl(path?: string | null) {
+  if (!path) return "";
+  if (path.startsWith("http://") || path.startsWith("https://")) return path;
+  return `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
 export function register(payload: RegisterPayload) {
@@ -149,6 +168,17 @@ export function changePassword(
   return request<ChangePasswordResponse>("/auth/change-password", {
     method: "POST",
     body: JSON.stringify(payload),
+    token,
+  });
+}
+
+export function uploadAvatar(token: string, file: File) {
+  const formData = new FormData();
+  formData.append("avatar", file);
+
+  return request<UploadAvatarResponse>("/auth/avatar", {
+    method: "POST",
+    body: formData,
     token,
   });
 }

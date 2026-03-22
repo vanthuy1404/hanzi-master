@@ -9,9 +9,11 @@ import {
   createVocabulary,
   createVocabularyBulk,
   deleteTopic,
+  generateVocabularyByAi,
   getTopics,
   getVocabularies,
   importVocabulariesFromExcel,
+  type GeneratedVocabularyItem,
   type Topic,
   type Vocabulary,
   updateTopic,
@@ -59,6 +61,10 @@ export default function ChuDePage() {
   const [tepExcel, setTepExcel] = useState<File | null>(null);
   const [dangKeoTha, setDangKeoTha] = useState(false);
   const [dangImport, setDangImport] = useState(false);
+  const [soLuongGenerateAi, setSoLuongGenerateAi] = useState(20);
+  const [dangGenerateAi, setDangGenerateAi] = useState(false);
+  const [dangLuuAi, setDangLuuAi] = useState(false);
+  const [ketQuaGenerateAi, setKetQuaGenerateAi] = useState<GeneratedVocabularyItem[]>([]);
 
   async function taiDuLieu(currentUserId?: number) {
     setDangTai(true);
@@ -160,6 +166,10 @@ export default function ChuDePage() {
     }
     setChuDeThemTuId(danhSachChuDe[0]?.id ?? null);
   }, [hienModalThemTu, chuDeDangChonId, danhSachChuDe]);
+
+  useEffect(() => {
+    setKetQuaGenerateAi([]);
+  }, [chuDeDangChonId]);
 
   function moModalImport() {
     setChuDeImportId(chuDeDangChonId ?? danhSachChuDe[0]?.id ?? null);
@@ -403,6 +413,53 @@ export default function ChuDePage() {
     }
   }
 
+  async function onGenerateTuVungAi() {
+    if (!chuDeDangChonId) {
+      setLoi("Vui lòng chọn chủ đề để generate.");
+      return;
+    }
+    try {
+      setDangGenerateAi(true);
+      setLoi("");
+      setThongBao("");
+      const ketQua = await generateVocabularyByAi({
+        chu_de_id: chuDeDangChonId,
+        so_luong: soLuongGenerateAi,
+        user_id: userId,
+      });
+      setKetQuaGenerateAi(ketQua);
+      setThongBao(`AI đã tạo ${ketQua.length}/${soLuongGenerateAi} từ (đã lọc trùng).`);
+    } catch (error) {
+      setLoi(error instanceof Error ? error.message : "Không thể generate từ vựng bằng AI");
+    } finally {
+      setDangGenerateAi(false);
+    }
+  }
+
+  async function onLuuTuVungAiVaoDb() {
+    if (!chuDeDangChonId || !ketQuaGenerateAi.length) {
+      return;
+    }
+    try {
+      setDangLuuAi(true);
+      setLoi("");
+      setThongBao("");
+      const ketQua = await createVocabularyBulk({
+        chu_de_id: chuDeDangChonId,
+        user_id: userId,
+        items: ketQuaGenerateAi,
+      });
+      const danhSachMoi = await getVocabularies(userId);
+      setDanhSachTuVung(danhSachMoi);
+      setThongBao(`Đã lưu từ AI: ${ketQua.count} từ, bỏ qua ${ketQua.skipped} từ.`);
+      setKetQuaGenerateAi([]);
+    } catch (error) {
+      setLoi(error instanceof Error ? error.message : "Không thể lưu danh sách từ AI");
+    } finally {
+      setDangLuuAi(false);
+    }
+  }
+
   return (
     <main className="mx-auto w-full max-w-[1440px] space-y-8 px-6 py-8 md:px-10">
       <section className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -564,6 +621,14 @@ export default function ChuDePage() {
               </select>
               <button
                 type="button"
+                onClick={onGenerateTuVungAi}
+                disabled={dangGenerateAi}
+                className="flex-1 rounded-lg border border-primary/20 px-4 py-2 text-sm font-bold text-primary hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-60 md:flex-none"
+              >
+                {dangGenerateAi ? "Đang generate AI..." : "AI Generate từ vựng"}
+              </button>
+              <button
+                type="button"
                 onClick={moModalImport}
                 className="flex-1 rounded-lg border border-primary/20 px-4 py-2 text-sm font-bold text-primary hover:bg-primary/5 md:flex-none"
               >
@@ -582,6 +647,36 @@ export default function ChuDePage() {
               </button>
             </div>
           </div>
+          <div className="border-b border-primary/10 bg-background/70 px-6 py-4">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <label className="flex items-center gap-2 text-sm">
+                <span className="font-semibold">Số lượng AI tạo:</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={soLuongGenerateAi}
+                  onChange={(event) => setSoLuongGenerateAi(Number(event.target.value) || 1)}
+                  className="h-9 w-24 rounded-lg border border-primary/20 bg-surface px-2 outline-none focus:ring-2 focus:ring-primary/40"
+                />
+              </label>
+              {ketQuaGenerateAi.length ? (
+                <button
+                  type="button"
+                  onClick={onLuuTuVungAiVaoDb}
+                  disabled={dangLuuAi}
+                  className="rounded-lg bg-primary px-4 py-2 text-sm font-bold text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {dangLuuAi ? "Đang lưu..." : `Lưu ${ketQuaGenerateAi.length} từ AI vào DB`}
+                </button>
+              ) : null}
+            </div>
+            {!!ketQuaGenerateAi.length && (
+              <p className="mt-2 text-xs text-muted">
+                Preview AI: {ketQuaGenerateAi.length} từ.
+              </p>
+            )}
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[720px] text-left">
               <thead className="bg-primary/5 text-xs uppercase tracking-wider text-muted">
@@ -594,6 +689,15 @@ export default function ChuDePage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-primary/10">
+                {ketQuaGenerateAi.map((tu, index) => (
+                  <tr key={`ai-${index}-${tu.hanzi}`} className="bg-primary/5">
+                    <td className="px-6 py-4 text-xl font-bold">{tu.hanzi ?? "-"}</td>
+                    <td className="px-6 py-4 text-muted">{tu.pinyin ?? "-"}</td>
+                    <td className="px-6 py-4 text-muted">{tu.pinyin_plain ?? "-"}</td>
+                    <td className="px-6 py-4">{tu.nghia_vi ?? "-"}</td>
+                    <td className="px-6 py-4">{tu.nghia_en ?? "-"}</td>
+                  </tr>
+                ))}
                 {danhSachTuTheoChuDe.map((tu) => (
                   <tr key={tu.id} className="hover:bg-primary/5">
                     <td className="px-6 py-4 text-xl font-bold">{tu.hanzi ?? "-"}</td>

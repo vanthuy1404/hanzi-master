@@ -2,13 +2,13 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
-import { getMe } from "@/lib/auth-api";
+import { getMe, resolveAssetUrl } from "@/lib/auth-api";
 import { getAuthToken, getStoredUser, saveUser } from "@/lib/auth-storage";
 import {
   acceptFriendRequestById,
   getFriendList,
-  getPendingFriendRequests,
   getFriendSuggestions,
+  getPendingFriendRequests,
   sendFriendRequest,
   type FriendUser,
   type PendingIncomingRequest,
@@ -30,6 +30,27 @@ function roleLabel(roleId: number | null) {
   if (roleId === 1) return "Admin";
   if (roleId === 2) return "Giáo viên";
   return "Học sinh";
+}
+
+function getInitials(username?: string | null) {
+  if (!username) return "U";
+  return username.slice(0, 2).toUpperCase();
+}
+
+function UserAvatar({ user, size = 36 }: { user: FriendUser; size?: number }) {
+  const avatarSrc = resolveAssetUrl(user.avatar_url);
+  return (
+    <span
+      className="flex items-center justify-center overflow-hidden rounded-full border border-primary/20 bg-primary/10 text-xs font-bold text-primary"
+      style={{ width: size, height: size }}
+    >
+      {avatarSrc ? (
+        <img src={avatarSrc} alt={user.username ?? `User #${user.id}`} className="h-full w-full object-cover" />
+      ) : (
+        getInitials(user.username)
+      )}
+    </span>
+  );
 }
 
 export default function BanBePage() {
@@ -143,21 +164,15 @@ export default function BanBePage() {
     });
 
     socket.on("friend_request_received", () => {
-      if (userId) {
-        loadData(userId).catch(() => {});
-      }
+      if (userId) loadData(userId).catch(() => {});
     });
 
     socket.on("friend_request_sent", () => {
-      if (userId) {
-        loadData(userId).catch(() => {});
-      }
+      if (userId) loadData(userId).catch(() => {});
     });
 
     socket.on("friend_request_accepted", () => {
-      if (userId) {
-        loadData(userId).catch(() => {});
-      }
+      if (userId) loadData(userId).catch(() => {});
     });
 
     return () => {
@@ -224,7 +239,7 @@ export default function BanBePage() {
   return (
     <main className="mx-auto w-full max-w-[1500px] space-y-6 px-6 py-8 md:px-10">
       <section>
-        <h1 className="text-3xl font-black tracking-tight">Bạn Bè & Nhắn Tin</h1>
+        <h1 className="text-3xl font-black tracking-tight">Bạn bè & Nhắn tin</h1>
         <p className="mt-1 text-muted">Theo dõi trạng thái hoạt động và chat realtime qua socket.</p>
       </section>
 
@@ -252,9 +267,12 @@ export default function BanBePage() {
                       : "border-primary/10 hover:bg-primary/5"
                   }`}
                 >
-                  <span>
-                    <strong className="block text-sm">{friend.username ?? `User #${friend.id}`}</strong>
-                    <span className="text-xs text-muted">{roleLabel(friend.role_id)}</span>
+                  <span className="flex items-center gap-2">
+                    <UserAvatar user={friend} />
+                    <span>
+                      <strong className="block text-sm">{friend.username ?? `User #${friend.id}`}</strong>
+                      <span className="text-xs text-muted">{roleLabel(friend.role_id)}</span>
+                    </span>
                   </span>
                   <span
                     className={`h-2.5 w-2.5 rounded-full ${
@@ -290,7 +308,7 @@ export default function BanBePage() {
                     <div key={message.id} className={`flex ${isMine ? "justify-end" : "justify-start"}`}>
                       <div
                         className={`max-w-[78%] rounded-xl px-3 py-2 text-sm ${
-                          isMine ? "bg-primary text-slate-900" : "bg-surface border border-primary/10"
+                          isMine ? "bg-primary text-slate-900" : "border border-primary/10 bg-surface"
                         }`}
                       >
                         {message.noi_dung}
@@ -327,10 +345,15 @@ export default function BanBePage() {
               <p className="text-sm font-bold">Lời mời kết bạn ({incomingRequests.length})</p>
               {incomingRequests.map((request) => (
                 <div key={request.request_id} className="rounded-lg border border-primary/10 bg-surface p-2">
-                  <p className="text-sm font-semibold">
-                    {request.requester.username ?? `User #${request.requester.id}`}
-                  </p>
-                  <p className="text-xs text-muted">{roleLabel(request.requester.role_id)}</p>
+                  <div className="flex items-center gap-2">
+                    <UserAvatar user={request.requester} />
+                    <span>
+                      <p className="text-sm font-semibold">
+                        {request.requester.username ?? `User #${request.requester.id}`}
+                      </p>
+                      <p className="text-xs text-muted">{roleLabel(request.requester.role_id)}</p>
+                    </span>
+                  </div>
                   <button
                     type="button"
                     onClick={() => onAcceptRequest(request.request_id)}
@@ -365,9 +388,12 @@ export default function BanBePage() {
               {suggestions.map((user) => (
                 <div key={user.id} className="rounded-lg border border-primary/10 p-3">
                   <div className="flex items-center justify-between">
-                    <span>
-                      <strong className="block text-sm">{user.username ?? `User #${user.id}`}</strong>
-                      <span className="text-xs text-muted">{roleLabel(user.role_id)}</span>
+                    <span className="flex items-center gap-2">
+                      <UserAvatar user={user} />
+                      <span>
+                        <strong className="block text-sm">{user.username ?? `User #${user.id}`}</strong>
+                        <span className="text-xs text-muted">{roleLabel(user.role_id)}</span>
+                      </span>
                     </span>
                     <span
                       className={`h-2.5 w-2.5 rounded-full ${

@@ -20,15 +20,15 @@ const learningModes = [
     tag: "2 CỘT",
     icon: "compare_arrows",
     color: "text-indigo-600 bg-indigo-100 dark:bg-indigo-900/30",
-    href: "/chu-de",
+    href: "/ghep-tu/lam-bai",
   },
   {
-    title: "Điền nghĩa",
-    description: "Dịch Hán tự thành nghĩa tiếng Việt chính xác.",
-    tag: "VIẾT TAY",
-    icon: "translate",
+    title: "Sắp xếp câu",
+    description: "Sắp xếp các cụm từ theo đúng thứ tự để thành câu hoàn chỉnh.",
+    tag: "SẮP XẾP",
+    icon: "format_list_numbered",
     color: "text-emerald-600 bg-emerald-100 dark:bg-emerald-900/30",
-    href: "/chu-de",
+    href: "/sap-xep-cau/lam-bai",
   },
   {
     title: "Luyện tập dịch",
@@ -66,8 +66,8 @@ export default function HomePage() {
       <section>
         <div className="mb-6 flex items-center justify-between">
           <h3 className="text-xl font-bold">Chế độ học</h3>
-          <Link href="/luyen-tap-dich/lam-bai" className="text-sm font-bold text-primary hover:underline">
-            Làm bài luyện tập dịch
+          <Link href="/sap-xep-cau/lam-bai" className="text-sm font-bold text-primary hover:underline">
+            Làm bài sắp xếp câu
           </Link>
         </div>
 

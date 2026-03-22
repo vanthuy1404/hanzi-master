@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { getMe } from "@/lib/auth-api";
 import { getAuthToken, getStoredUser, saveUser } from "@/lib/auth-storage";
 import {
+  createExperiencePoint,
   getTopics,
   getTranslationPractices,
   submitTranslationPractice,
@@ -134,7 +135,16 @@ export default function LamBaiLuyenTapDichPage() {
         answers,
       });
       setResult(ketQua);
-      setThongBao("Đã nộp bài và lưu lịch sử học thành công");
+      const expCongThem = Math.max(1, ketQua.so_cau_dung);
+      try {
+        await createExperiencePoint({
+          user_id: userId,
+          exp: expCongThem,
+        });
+        setThongBao(`Đã nộp bài và cộng ${expCongThem} EXP.`);
+      } catch {
+        setThongBao("Đã nộp bài và lưu lịch sử học thành công (chưa cộng được EXP).");
+      }
     } catch (error) {
       setLoi(error instanceof Error ? error.message : "Không thể nộp bài");
     } finally {
@@ -146,7 +156,9 @@ export default function LamBaiLuyenTapDichPage() {
     <main className="mx-auto w-full max-w-[1200px] space-y-6 px-6 py-8 md:px-10">
       <section>
         <h1 className="text-3xl font-black tracking-tight">Làm Bài Luyện Tập Dịch</h1>
-        <p className="mt-1 text-muted">Chọn đề, nhập đáp án từng câu, rồi bấm Nộp để chấm điểm.</p>
+        <p className="mt-1 text-muted">
+          Chọn đề, nhập đáp án từng câu bằng pinyin plain hoặc hanzi, rồi bấm Nộp để chấm điểm.
+        </p>
       </section>
 
       {loi && (
@@ -213,12 +225,12 @@ export default function LamBaiLuyenTapDichPage() {
           </div>
 
           <label className="mb-4 block">
-            <span className="mb-1 block text-sm font-semibold">Nhập đáp án (pinyin plain)</span>
+            <span className="mb-1 block text-sm font-semibold">Nhập đáp án (pinyin plain hoặc hanzi)</span>
             <input
               value={answers[currentIndex] ?? ""}
               onChange={(event) => capNhatDapAn(event.target.value)}
               className="h-11 w-full rounded-lg border border-primary/20 bg-background/70 px-3 outline-none focus:ring-2 focus:ring-primary/40"
-              placeholder="Ví dụ: wo jintian qu xuexiao"
+              placeholder="Ví dụ: wo jintian qu xuexiao hoặc 我今天去学校"
             />
           </label>
 
@@ -284,7 +296,8 @@ export default function LamBaiLuyenTapDichPage() {
                   Câu {item.index}: {item.question}
                 </p>
                 <p className="text-sm">Bạn trả lời: {item.user_answer || "(trống)"}</p>
-                <p className="text-sm">Đáp án hệ thống: {item.system_answer}</p>
+                <p className="text-sm">Đáp án pinyin: {item.system_answer}</p>
+                <p className="text-sm">Đáp án hanzi: {item.system_answer_hanzi || "-"}</p>
               </article>
             ))}
           </div>

@@ -19,6 +19,17 @@ export type Vocabulary = {
   created_at?: string | null;
 };
 
+export type GeneratedVocabularyItem = {
+  hanzi: string;
+  pinyin?: string;
+  pinyin_plain?: string;
+  nghia_vi?: string;
+  nghia_en?: string;
+  example_cn?: string;
+  example_vi?: string;
+  chu_de_id: number;
+};
+
 export type VocabularyFlashCardPage = {
   items: Vocabulary[];
   pagination: {
@@ -32,6 +43,7 @@ export type VocabularyFlashCardPage = {
 export type TranslationPracticeItem = {
   question: string;
   answer: string;
+  answer_hanzi: string;
 };
 
 export type TranslationPractice = {
@@ -42,6 +54,48 @@ export type TranslationPractice = {
   level: "de" | "trung_binh" | "kho";
   created_at?: string | null;
   items: TranslationPracticeItem[];
+};
+
+export type SentenceOrderingItem = {
+  question: string[];
+  answer: string[];
+  nghia_vi: string;
+};
+
+export type SentenceOrderingPractice = {
+  id: number;
+  user_id: number | null;
+  topic_ids: number[];
+  so_cau: number;
+  noi_dung: SentenceOrderingItem[];
+};
+
+export type GeneratedSentenceOrderingPractice = {
+  user_id: number | null;
+  topic_ids: number[];
+  so_cau: number;
+  level: "de" | "trung_binh" | "kho";
+  items: SentenceOrderingItem[];
+};
+
+export type SentenceOrderingSubmitDetail = {
+  index: number;
+  question: string[];
+  user_answer: string[];
+  system_answer: string[];
+  nghia_vi: string;
+  is_correct: boolean;
+};
+
+export type SentenceOrderingSubmitResult = {
+  history_id: number;
+  exp_id: number;
+  sap_xep_cau_id: number;
+  tong_so_cau: number;
+  so_cau_dung: number;
+  diem: number;
+  exp_cong_them: number;
+  details: SentenceOrderingSubmitDetail[];
 };
 
 export type DeleteTranslationPracticeResponse = {
@@ -62,6 +116,7 @@ export type TranslationPracticeSubmitDetail = {
   question: string;
   user_answer: string;
   system_answer: string;
+  system_answer_hanzi: string;
   is_correct: boolean;
 };
 
@@ -72,6 +127,12 @@ export type TranslationPracticeSubmitResult = {
   so_cau_dung: number;
   diem: number;
   details: TranslationPracticeSubmitDetail[];
+};
+
+export type ExperiencePoint = {
+  id: number;
+  user_id: number;
+  exp: number;
 };
 
 type VocabularyDuplicateResponse = {
@@ -182,6 +243,22 @@ export function getVocabularyFlashCards(input?: {
   );
 }
 
+export function getRandomVocabulariesByTopic(input: {
+  chu_de_id: number;
+  so_luong: number;
+  user_id?: number;
+}) {
+  return request<Vocabulary[]>(
+    "/tu-vung/random",
+    { method: "GET" },
+    {
+      chu_de_id: input.chu_de_id,
+      so_luong: input.so_luong,
+      user_id: input.user_id,
+    },
+  );
+}
+
 export function createVocabulary(payload: {
   hanzi: string;
   pinyin?: string;
@@ -213,6 +290,17 @@ export function createVocabularyBulk(input: {
   }>;
 }) {
   return request<BulkCreateResponse>("/tu-vung/bulk", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function generateVocabularyByAi(input: {
+  chu_de_id: number;
+  so_luong: number;
+  user_id?: number;
+}) {
+  return request<GeneratedVocabularyItem[]>("/tu-vung/generate", {
     method: "POST",
     body: JSON.stringify(input),
   });
@@ -310,6 +398,54 @@ export function submitTranslationPractice(
   },
 ) {
   return request<TranslationPracticeSubmitResult>(`/luyen-tap-dich/${id}/submit`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function getSentenceOrderingPractices(userId?: number) {
+  return request<SentenceOrderingPractice[]>("/sap-xep-cau", { method: "GET" }, { user_id: userId });
+}
+
+export function generateSentenceOrderingPractice(input: {
+  topic_ids: number[];
+  so_cau: number;
+  level: "de" | "trung_binh" | "kho";
+  user_id?: number | null;
+}) {
+  return request<GeneratedSentenceOrderingPractice>("/sap-xep-cau/generate", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function saveSentenceOrderingPractice(input: {
+  topic_ids: number[];
+  so_cau: number;
+  items: SentenceOrderingItem[];
+  user_id?: number | null;
+}) {
+  return request<SentenceOrderingPractice>("/sap-xep-cau/save", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function submitSentenceOrderingPractice(
+  id: number,
+  input: {
+    user_id: number;
+    answers: Array<string[] | { answer: string[] }>;
+  },
+) {
+  return request<SentenceOrderingSubmitResult>(`/sap-xep-cau/${id}/submit`, {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function createExperiencePoint(input: { user_id: number; exp: number }) {
+  return request<ExperiencePoint>("/diem-kinh-nghiem", {
     method: "POST",
     body: JSON.stringify(input),
   });

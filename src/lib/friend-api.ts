@@ -2,6 +2,7 @@ export type FriendUser = {
   id: number;
   username: string | null;
   email: string | null;
+  avatar_url: string | null;
   role_id: number | null;
   is_online: boolean;
 };

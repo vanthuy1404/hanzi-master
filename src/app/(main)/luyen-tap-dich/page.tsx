@@ -34,17 +34,18 @@ function parseItemsFromTextarea(value: string): TranslationPracticeItem[] {
     .map((line) => line.trim())
     .filter((line) => line.length > 0)
     .map((line) => {
-      const [question, answer] = line.split("|").map((part) => part.trim());
+      const [question, answer, answer_hanzi] = line.split("|").map((part) => part.trim());
       return {
         question: question ?? "",
         answer: answer ?? "",
+        answer_hanzi: answer_hanzi ?? "",
       };
     })
     .filter((item) => item.question.length > 0 && item.answer.length > 0);
 }
 
 function itemsToTextarea(items: TranslationPracticeItem[]) {
-  return items.map((item) => `${item.question} | ${item.answer}`).join("\n");
+  return items.map((item) => `${item.question} | ${item.answer} | ${item.answer_hanzi ?? ""}`).join("\n");
 }
 
 export default function LuyenTapDichPage() {
@@ -236,7 +237,7 @@ export default function LuyenTapDichPage() {
       return;
     }
     if (!items.length) {
-      setLoi("Dữ liệu câu hỏi không hợp lệ. Mỗi dòng cần theo mẫu: question | answer");
+      setLoi("Dữ liệu câu hỏi không hợp lệ. Mỗi dòng cần theo mẫu: question | answer | answer_hanzi");
       return;
     }
 
@@ -334,7 +335,7 @@ export default function LuyenTapDichPage() {
       <section className="flex flex-col gap-2">
         <h1 className="text-3xl font-black tracking-tight">Luyện Tập Dịch</h1>
         <p className="text-muted">
-          Chọn chủ đề, chọn mức độ, generate bài Việt - pinyin plain, xem preview rồi lưu.
+          Chọn chủ đề, chọn mức độ, generate bài Việt - Trung, xem preview rồi lưu.
         </p>
       </section>
 
@@ -474,6 +475,7 @@ export default function LuyenTapDichPage() {
                   <th className="px-6 py-4">#</th>
                   <th className="px-6 py-4">Question (VI)</th>
                   <th className="px-6 py-4">Answer (pinyin plain)</th>
+                  <th className="px-6 py-4">Answer (hanzi)</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-primary/10">
@@ -482,6 +484,7 @@ export default function LuyenTapDichPage() {
                     <td className="px-6 py-4 text-sm font-bold">{index + 1}</td>
                     <td className="px-6 py-4">{item.question}</td>
                     <td className="px-6 py-4 text-muted">{item.answer}</td>
+                    <td className="px-6 py-4 text-muted">{item.answer_hanzi || "-"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -566,7 +569,7 @@ export default function LuyenTapDichPage() {
                           <tr>
                             <th className="px-4 py-3">#</th>
                             <th className="px-4 py-3">Question</th>
-                            <th className="px-4 py-3">Answer</th>
+                            <th className="px-4 py-3">Answer (pinyin | hanzi)</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-primary/10">
@@ -574,7 +577,11 @@ export default function LuyenTapDichPage() {
                             <tr key={`${baiTap.id}-${index}`} className="hover:bg-primary/5">
                               <td className="px-4 py-3 text-sm font-semibold">{index + 1}</td>
                               <td className="px-4 py-3">{item.question}</td>
-                              <td className="px-4 py-3 text-muted">{item.answer}</td>
+                              <td className="px-4 py-3 text-muted">
+                                {item.answer}
+                                <br />
+                                {item.answer_hanzi || "-"}
+                              </td>
                             </tr>
                           ))}
                         </tbody>
@@ -653,14 +660,14 @@ export default function LuyenTapDichPage() {
 
             <label className="mb-4 block">
               <span className="mb-1 block text-sm font-semibold">
-                Dữ liệu câu hỏi (mỗi dòng: question | answer)
+                Dữ liệu câu hỏi (mỗi dòng: question | answer | answer_hanzi)
               </span>
               <textarea
                 rows={8}
                 value={themItemsText}
                 onChange={(event) => setThemItemsText(event.target.value)}
                 className="w-full rounded-lg border border-primary/20 bg-background px-3 py-2 outline-none focus:ring-2 focus:ring-primary/40"
-                placeholder={"Tôi đi học lúc 7 giờ | wo qi shangxue qi dian\nBạn đang làm gì? | ni zai zuo shenme"}
+                placeholder={"Tôi đi học lúc 7 giờ | wo qi shangxue qi dian | 我七点去上学\nBạn đang làm gì? | ni zai zuo shenme | 你在做什么？"}
               />
             </label>
 
@@ -740,7 +747,7 @@ export default function LuyenTapDichPage() {
 
             <label className="mb-4 block">
               <span className="mb-1 block text-sm font-semibold">
-                Dữ liệu câu hỏi (mỗi dòng: question | answer)
+                Dữ liệu câu hỏi (mỗi dòng: question | answer | answer_hanzi)
               </span>
               <textarea
                 rows={8}
